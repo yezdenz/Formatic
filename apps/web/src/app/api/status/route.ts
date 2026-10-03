@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  if (!process.env.DATABASE_URL || !process.env.DIRECT_URL || !process.env.JWT_SECRET) {
+  if (!process.env.DATABASE_URL || !process.env.POSTGRES_URL || !process.env.JWT_SECRET) {
     return NextResponse.json({ signInAvailable: false });
   }
 
