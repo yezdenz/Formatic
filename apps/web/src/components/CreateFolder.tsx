@@ -2,7 +2,7 @@
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export function CreateFolder({ parentId }: { parentId?: string }) {
+export function CreateFolder({ parentId, kind = 'folder' }: { parentId?: string; kind?: 'course' | 'folder' }) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [error, setError] = useState('');
@@ -12,5 +12,5 @@ export function CreateFolder({ parentId }: { parentId?: string }) {
     if (!response.ok) { setError((await response.json()).error || 'Could not create folder.'); return; }
     setName(''); router.refresh();
   }
-  return <form className="panel" onSubmit={create}><label>{parentId ? 'New subfolder' : 'New folder'}<input className="field" value={name} onChange={event => setName(event.target.value)} maxLength={100} required /></label><button className="button">Create folder</button>{error && <p className="error">{error}</p>}</form>;
+  return <form className="panel" onSubmit={create}><label>{kind === 'course' ? 'Course name' : 'Folder name'}<input className="field" value={name} onChange={event => setName(event.target.value)} maxLength={100} required /></label><button className="button">Create {kind}</button>{error && <p className="error">{error}</p>}</form>;
 }
