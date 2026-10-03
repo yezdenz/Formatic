@@ -29,10 +29,20 @@ model User {
   role         Role       @default(USER)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+  teamId       String?
+  team         Team?      @relation(fields: [teamId], references: [id])
 
   submissions  PushBatch[]
   folders      Folder[]   @relation("UserFolders")
   activityLogs AdminLog[]
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  users     User[]
+  folders   Folder[]
+  createdAt DateTime @default(now())
 }
 
 model Folder {
@@ -49,12 +59,15 @@ model Folder {
 
   creatorId   String
   creator     User       @relation("UserFolders", fields: [creatorId], references: [id])
+  teamId      String?
+  team        Team?      @relation(fields: [teamId], references: [id])
 
   questions   Question[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
   @@index([parentId])
+  @@index([teamId])
 }
 
 model Question {
