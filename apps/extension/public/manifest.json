@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Formatic - Canvas Formative Saver",
+  "version": "0.1.0",
+  "description": "Stage Canvas quiz questions locally for review and study.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["http://localhost:3000/*", "https://*/*"],
+  "action": { "default_popup": "src/popup/index.html" },
+  "background": { "service_worker": "serviceWorker.js" },
+  "content_scripts": [{
+    "matches": ["https://*/*quizzes/*", "https://*/*quiz_submissions/*"],
+    "js": ["canvasScraper.js"],
+    "run_at": "document_idle"
+  }]
+}
