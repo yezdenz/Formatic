@@ -11,3 +11,7 @@ export function normalizeText(value: string): string {
 export function questionHash(value: string): string {
   return createHash('sha256').update(normalizeText(value)).digest('hex');
 }
+
+export function scopedQuestionHash(teamId: string, value: string): string {
+  return createHash('sha256').update(teamId).update('\0').update(normalizeText(value)).digest('hex');
+}
