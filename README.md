@@ -68,8 +68,8 @@ npm install
 # Setup environment variables
 cp .env.example .env
 
-# Apply the checked-in migration and seed the admin account
-npx prisma migrate deploy
+# Apply the checked-in migrations and optionally seed the admin account
+npm run db:deploy
 npx prisma db seed
 
 # Run the development server
@@ -77,7 +77,7 @@ npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) to view Formatic Hub.
 The interactive preview at [http://localhost:3000/demo](http://localhost:3000/demo) starts with blank sign-in fields, no team code, and no folders. It runs only in the current browser tab; real sign-in and shared folders require a PostgreSQL connection.
-Set every value in `.env` before starting. `ADMIN_SECRET_KEY` must contain at least 16 characters and `JWT_SECRET` at least 32. The seed creates an `admin` account whose passcode is `ADMIN_SECRET_KEY`.
+Set every value in `.env` before starting. `ADMIN_SECRET_KEY` must contain at least 16 characters and `JWT_SECRET` at least 32. The optional seed creates only an `admin` account whose passcode is `ADMIN_SECRET_KEY`; the team code and courses start empty. You can also create an admin account through the sign-in page by using the admin passcode.
 With the local hub running, run `npm run smoke` from `apps/web` to check nested folders, question pushes, deduplication, and admin merge aliases. This test creates temporary records and removes its test folders afterward.
 
 ### 3. Load the Chrome Extension
@@ -97,7 +97,7 @@ npm run build
 
 ### Vercel deployment
 
-Set the Vercel project root to `apps/web`. Configure `DATABASE_URL` with a pooled PostgreSQL URL, `DIRECT_URL` with a direct PostgreSQL URL, and the other variables from `apps/web/.env.example`. Apply migrations with `npx prisma migrate deploy` against the production database before using the app. The extension's popup URL must be set to the deployed HTTPS domain, and `EXTENSION_ID` must match the packed extension ID. The app uses an exact extension origin for credentialed CORS; wildcard origins are not valid with cookies.
+See [Deployment guide](DEPLOYMENT.md) for the Vercel project settings, Neon database connection, environment variables, and migration flow. The Vercel build applies the checked-in migrations before building the website. The extension needs the deployed HTTPS domain in its popup settings and its actual ID in the website's `EXTENSION_ID` variable.
 
 ---
 
