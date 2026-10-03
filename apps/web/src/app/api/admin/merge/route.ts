@@ -19,10 +19,10 @@ export async function POST(request: NextRequest) {
   const { targetId, sourceId } = parsed.data;
   const merged = await prisma.$transaction(async tx => {
     const [target, source] = await Promise.all([
-      tx.question.findUnique({ where: { id: targetId }, include: { choices: true } }),
-      tx.question.findUnique({ where: { id: sourceId }, include: { choices: true } })
+      tx.question.findUnique({ where: { id: targetId }, include: { choices: true, folder: true } }),
+      tx.question.findUnique({ where: { id: sourceId }, include: { choices: true, folder: true } })
     ]);
-    if (!target || !source) return null;
+    if (!target || !source || target.folder.teamId !== user.teamId || source.folder.teamId !== user.teamId) return null;
     const targetChoices = [...target.choices];
     let hasConflict = target.hasConflict || source.hasConflict;
     for (const choice of source.choices) {
