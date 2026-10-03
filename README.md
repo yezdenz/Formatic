@@ -18,9 +18,11 @@ Formatic is a website and Chrome extension for saving and studying questions fro
 - **Smart SHA-256 Deduplication**: Identifies repeat questions across attempts and students. Automatically merges new answer choices, records confirmed correct keys, and tracks encounter frequency and error statistics.
 - **Courses and Folders**: Create courses at the top level, then add and rename folders inside them (e.g., `Biology 101` ➔ `Unit 3: Genetics` ➔ `Formative Quiz 2`).
 
-### 3. 🔑 Soft Login & Admin Consistency Guard
+### 3. 🔑 Soft Login & Repository Moderation
 - **Frictionless Soft Login**: No tedious email verification links or OAuth setups. Enter a username and passcode to immediately start collaborating.
-- **Role-Based Consistency (Admin)**: Designated admin users can moderate questions, edit answers, resolve conflict flags, and reorganize global folder trees.
+- **Admin and Mod ranks**: Admins can assign or remove Mod rank for registered members of their team. Admins and Mods can edit or delete team questions, resolve answer conflicts, merge duplicates, and manage team folders.
+- **Push rollback**: Admins and Mods can roll back a whole push when every question was newly created and has not been changed or used by a later push. Mixed pushes need individual question review so earlier work is not erased.
+- **Moderation history**: Question deletions and push rollbacks keep audit snapshots for recovery.
 
 ### 4. 🎮 Study Suite
 - **Class Repository**: A greeting, unique class code, and searchable folder list in a clean workspace inspired by Quest Log's navigation and panels.
