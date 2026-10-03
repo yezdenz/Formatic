@@ -12,7 +12,7 @@ export const OPTIONS = preflight;
 
 export async function POST(request: NextRequest) {
   if (!acceptsMutation(request)) return apiJson(request, { error: 'Origin or content type denied.' }, 403);
-  if (!process.env.DATABASE_URL || !process.env.DIRECT_URL || !process.env.JWT_SECRET) return apiJson(request, { error: 'Sign in is unavailable until website storage is configured.' }, 503);
+  if (!process.env.DATABASE_URL || !process.env.POSTGRES_URL || !process.env.JWT_SECRET) return apiJson(request, { error: 'Sign in is unavailable until website storage is configured.' }, 503);
   const parsed = credentials.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiJson(request, { error: 'Enter a username and a passcode of at least 8 characters.' }, 400);
   const { username, passcode } = parsed.data;
