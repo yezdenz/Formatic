@@ -58,7 +58,11 @@ form .button { margin:5px 0 14px; }
 .choice-list { margin:5px 0; padding-left:16px; color:#696474; }
 .choice-list li { margin:2px 0; }
 .choice-list .correct-choice { color:#28643a; font-weight:700; }
+.choice-list .wrong-choice { color:#a13e47; font-weight:700; }
 .question-meta { display:block; margin-top:3px; color:#8a8390; font-size:10px; }
+.match-badge { display:inline-block; margin-top:5px; padding:2px 5px; border:1px solid #c9c0d2; background:#eee8f5; color:#655976; font:700 11px 'Pixelify Sans Variable',monospace; }
+.match-existing { color:#32633a; background:#e3f1db; border-color:#a8c3a2; }
+.match-absent { color:#79602f; background:#fff2d5; border-color:#ddc28a; }
 .empty-state { padding:17px 16px; color:#797287; background:#fffdf8; border:2px dashed #d1cabc; text-align:center; }
 .empty-state span { display:block; margin-bottom:3px; color:#81946e; font:700 27px 'Pixelify Sans Variable',monospace; }
 .empty-state strong { display:block; color:#52485e; font:700 18px 'Pixelify Sans Variable',monospace; }
