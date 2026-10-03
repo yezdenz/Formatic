@@ -1,1 +1,77 @@
-:root{font-family:Arial,sans-serif;color:#0e3a75;background:#f3f6fa}*{box-sizing:border-box}body{margin:0;width:360px}main{padding:16px}header{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px solid #1b5ebe;margin-bottom:16px}h1{font-size:22px;margin:0 0 10px}header span{font-size:10px;font-weight:800;letter-spacing:2px}label{display:block;font-size:12px;font-weight:700;margin:12px 0}input,select{display:block;width:100%;margin-top:5px;padding:9px;border:2px solid #94a3b8;background:#fff;color:#0e3a75}button{background:#fff;color:#1b5ebe;border:2px solid #1b5ebe;box-shadow:0 3px 0 #1b5ebe;padding:8px 12px;font-weight:800;cursor:pointer}button:disabled{opacity:.5;cursor:default}.primary{width:100%;background:#2f80ed;color:#fff;margin-top:8px}.status,.message{font-size:12px}.counts{display:flex;justify-content:space-between;background:#ebf3fe;border:2px solid #1b5ebe;padding:10px;font-size:12px}.attempts{max-height:180px;overflow:auto}.attempts article{background:#fff;border:2px solid #cbd5e1;margin-top:9px;padding:8px}.attempts small{float:right}.attempts p{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:5px 0}.progress{height:12px;border:2px solid #1b5ebe;background:#ebf3fe;margin-top:12px}.progress div{height:100%;background:#2f80ed;transition:width .2s}
+@import '@fontsource-variable/pixelify-sans/index.css';
+@import '@fontsource-variable/dm-sans/index.css';
+
+:root { font-family:'DM Sans Variable',sans-serif; color:#302b3b; background:#f4f1e9; }
+* { box-sizing:border-box; }
+body { width:350px; min-height:480px; max-height:580px; margin:0; }
+button,input,select { font:inherit; }
+button { cursor:pointer; }
+button:disabled { opacity:.5; cursor:default; }
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible { outline:2px solid #8168b4; outline-offset:2px; }
+main { min-height:480px; max-height:580px; display:flex; flex-direction:column; }
+.app-header { min-height:68px; padding:12px 16px; display:flex; align-items:center; gap:11px; color:#fff; background:#30274e; border-bottom:3px solid #201934; }
+.brand-mark { width:37px; height:37px; display:grid; place-items:center; flex:0 0 auto; color:#30274e; background:#e5a936; border:2px solid #f1c45f; box-shadow:3px 3px 0 #201934; font:700 26px/1 'Pixelify Sans Variable',monospace; }
+.brand-copy { display:grid; gap:1px; }
+.brand-copy strong { font:700 23px/1 'Pixelify Sans Variable',monospace; letter-spacing:.015em; }
+.brand-copy span { color:#c8bcdc; font-size:10px; font-weight:700; letter-spacing:.04em; }
+.header-dot { width:8px; height:8px; margin-left:auto; background:#afa0b9; border:1px solid #d4c9dc; box-shadow:2px 2px 0 #201934; }
+.header-dot.connected { background:#74b777; border-color:#b1d7a5; }
+.popup-content { padding:17px 18px 22px; overflow-y:auto; flex:1; }
+.eyebrow { display:block; margin:0 0 4px; color:#3f7d45; font:700 12px/1.1 'Pixelify Sans Variable',monospace; letter-spacing:.05em; text-transform:uppercase; }
+h1,h2,p { margin-top:0; }
+h1,h2,.team-badge,.button,footer { font-family:'Pixelify Sans Variable',monospace; }
+h1 { margin-bottom:6px; color:#39304e; font-size:30px; line-height:1.05; }
+h2 { margin:0; font-size:22px; line-height:1.05; }
+h2 span { display:inline-block; padding:0 5px; color:#756985; background:#eee8f5; border:1px solid #d5cbdc; font-size:15px; vertical-align:middle; }
+.intro,.hint { color:#78758a; font-size:12px; line-height:1.5; }
+.intro { margin-bottom:16px; }
+label { display:block; color:#51495b; font-size:12px; font-weight:700; }
+form label { margin-bottom:11px; }
+input:not([type=checkbox]),select { display:block; width:100%; height:38px; margin-top:5px; padding:7px 9px; color:#302b3b; background:#fffdf8; border:2px solid #c8c1b3; border-radius:0; outline:none; }
+input:not([type=checkbox]):focus,select:focus { border-color:#8168b4; box-shadow:2px 2px 0 #d9d2c3; }
+.button { min-height:39px; padding:8px 12px; color:#3f3b4c; background:#fffdf8; border:2px solid #777086; box-shadow:3px 3px 0 #d3ccd1; font-size:17px; font-weight:700; line-height:1; }
+.button:hover:not(:disabled) { transform:translate(1px,1px); box-shadow:2px 2px 0 #d3ccd1; }
+.button-primary { width:100%; color:#fff; background:#3f7d45; border-color:#244e2c; box-shadow:3px 3px 0 #b4ac9f; }
+.button-primary:hover:not(:disabled) { background:#326b39; box-shadow:2px 2px 0 #b4ac9f; }
+form .button { margin:5px 0 14px; }
+.text-button { display:inline; padding:0; color:#514578; background:none; border:0; font-size:11px; font-weight:700; text-decoration:underline; text-underline-offset:2px; }
+.sign-in-panel > .text-button { display:block; margin-top:9px; }
+.account-strip { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:11px 12px; margin-bottom:20px; background:#fffdf8; border:2px solid #c8c1b3; box-shadow:3px 3px 0 #d9d2c3; }
+.account-strip strong { display:block; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:170px; }
+.team-badge { padding:5px 7px; color:#2c6235; background:#e3f1db; border:1px solid #a8c3a2; font-size:14px; white-space:nowrap; }
+.notice { padding:9px; margin-bottom:18px; color:#79532c; background:#fff2d5; border:1px solid #ddc28a; font-size:11px; line-height:1.5; }
+.section-head { margin-bottom:10px; }
+.attempt-list { max-height:205px; overflow:auto; padding-right:3px; }
+.attempt-card { margin:0 3px 9px 0; padding:10px; background:#fffdf8; border:2px solid #c8c1b3; box-shadow:2px 2px 0 #d9d2c3; }
+.attempt-top { display:flex; align-items:start; gap:6px; }
+.attempt-select { flex:1; min-width:0; display:flex; align-items:start; gap:8px; }
+.attempt-select input { margin:3px 0 0; accent-color:#3f7d45; }
+.attempt-select span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#39304e; font:700 17px/1.2 'Pixelify Sans Variable',monospace; }
+.remove-button { width:20px; height:20px; padding:0; color:#8a7f8d; background:transparent; border:0; font-size:20px; line-height:15px; }
+.remove-button:hover { color:#a32e3b; }
+.attempt-meta { margin:4px 0 8px 22px; color:#8b8492; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.attempt-card details { margin-left:22px; }
+.attempt-card summary,.settings summary { color:#5a4d75; font-size:11px; font-weight:700; cursor:pointer; }
+.attempt-card ol { margin:8px 0 0; padding-left:17px; }
+.question-preview { padding:5px 0; border-top:1px solid #eee9dd; font-size:11px; }
+.question-text { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; white-space:pre-wrap; }
+.choice-list { margin:5px 0; padding-left:16px; color:#696474; }
+.choice-list li { margin:2px 0; }
+.choice-list .correct-choice { color:#28643a; font-weight:700; }
+.question-meta { display:block; margin-top:3px; color:#8a8390; font-size:10px; }
+.empty-state { padding:17px 16px; color:#797287; background:#fffdf8; border:2px dashed #d1cabc; text-align:center; }
+.empty-state span { display:block; margin-bottom:3px; color:#81946e; font:700 27px 'Pixelify Sans Variable',monospace; }
+.empty-state strong { display:block; color:#52485e; font:700 18px 'Pixelify Sans Variable',monospace; }
+.empty-state p { margin:4px 0 0; font-size:11px; line-height:1.4; }
+.destination-section { padding-top:17px; margin-top:17px; border-top:1px solid #ded8ca; }
+.destination-section h2 { margin-bottom:12px; }
+.destination-label select { margin-top:5px; font-size:12px; }
+.destination-section .hint { margin:7px 0 0; }
+.push-button { margin:17px 3px 0 0; width:calc(100% - 3px); }
+.progress { height:11px; padding:1px; margin-top:10px; background:#e8e1d4; border:2px solid #8b8291; }
+.progress div { height:100%; background:#3f7d45; transition:width .2s; }
+.message { margin:14px 0 0; padding:8px; color:#514578; background:#eee8f5; border:1px solid #c6b7d6; font-size:11px; line-height:1.4; }
+.settings { margin-top:16px; padding-top:11px; border-top:1px solid #ded8ca; }
+.settings label { margin:10px 0; }
+.settings .button { font-size:14px; min-height:34px; }
+footer { padding:8px; color:#a69aaf; background:#30274e; border-top:2px solid #201934; font-size:11px; letter-spacing:.05em; text-align:center; }
