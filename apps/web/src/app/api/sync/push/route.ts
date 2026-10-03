@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { currentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { acceptsMutation, apiJson, preflight } from '@/lib/cors';
-import { normalizeText, questionHash, stripHtml } from '@/lib/deduplicate';
+import { normalizeText, questionHash, scopedQuestionHash, stripHtml } from '@/lib/deduplicate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,10 +25,12 @@ export async function POST(request: NextRequest) {
   if (!acceptsMutation(request)) return apiJson(request, { error: 'Origin or content type denied.' }, 403);
   const user = await currentUser();
   if (!user) return apiJson(request, { error: 'Unauthorized' }, 401);
+  if (!user.teamId) return apiJson(request, { error: 'Set your team code before saving questions.' }, 400);
+  const teamId = user.teamId;
   const parsed = payload.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiJson(request, { error: 'Invalid push payload.' }, 400);
   const { folderId, questions } = parsed.data;
-  if (!await prisma.folder.findUnique({ where: { id: folderId } })) return apiJson(request, { error: 'Folder not found.' }, 404);
+  if (!await prisma.folder.findFirst({ where: { id: folderId, teamId } })) return apiJson(request, { error: 'Folder not found.' }, 404);
 
   let result: { batchId: string; newItems: number; mergedItems: number } | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -38,9 +40,12 @@ export async function POST(request: NextRequest) {
     let mergedItems = 0;
     const items: { questionId: string; wasNew: boolean }[] = [];
     for (const incoming of questions) {
-      const hash = questionHash(incoming.questionText);
-      const direct = await tx.question.findUnique({ where: { hash }, include: { choices: true } });
-      const existing = direct ?? (await tx.questionAlias.findUnique({ where: { hash }, include: { question: { include: { choices: true } } } }))?.question;
+      const hash = scopedQuestionHash(teamId, incoming.questionText);
+      const legacyHash = questionHash(incoming.questionText);
+      const direct = await tx.question.findUnique({ where: { hash }, include: { choices: true, folder: true } });
+      const alias = await tx.questionAlias.findUnique({ where: { hash }, include: { question: { include: { choices: true, folder: true } } } });
+      const legacy = !direct && !alias ? await tx.question.findUnique({ where: { hash: legacyHash }, include: { choices: true, folder: true } }) : null;
+      const existing = direct ?? alias?.question ?? (legacy?.folder.teamId === teamId ? legacy : null);
       if (!existing) {
         const created = await tx.question.create({ data: {
           hash, text: incoming.questionText, plainText: stripHtml(incoming.questionText), folderId,
