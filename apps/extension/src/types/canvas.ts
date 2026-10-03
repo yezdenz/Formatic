@@ -6,7 +6,7 @@ export interface ScrapedChoice {
 
 export interface ScrapedQuestion {
   canvasQuestionId: string;
-  questionType?: 'MULTIPLE_CHOICE' | 'MULTIPLE_ANSWERS' | 'SHORT_ANSWER' | 'ESSAY';
+  questionType?: 'MULTIPLE_CHOICE' | 'MULTIPLE_ANSWERS' | 'TRUE_FALSE' | 'SHORT_ANSWER' | 'ESSAY';
   courseTitle?: string;
   quizTitle?: string;
   questionText: string;
