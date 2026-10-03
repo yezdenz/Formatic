@@ -27,6 +27,6 @@ export async function currentUser() {
   try {
     const { payload } = await jwtVerify(token, secret());
     if (!payload.sub) return null;
-    return await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, username: true, nickname: true, role: true } });
+    return await prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, username: true, nickname: true, role: true, teamId: true, team: { select: { code: true } } } });
   } catch { return null; }
 }
