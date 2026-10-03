@@ -5,13 +5,13 @@ This repository contains a Next.js website in `apps/web` and a Chrome extension 
 ## Connect the website and database
 
 1. Import the GitHub repository into Vercel as a Next.js project and set **Root Directory** to `apps/web`. Keep the install command at the Vercel default (`npm install` / `npm ci`). `apps/web/vercel.json` runs `npm run vercel-build`.
-2. Create a PostgreSQL database with the [Neon integration on Vercel](https://vercel.com/marketplace/neon), or connect an existing PostgreSQL database. Connect it to this Vercel project. The provider may add `DATABASE_URL` automatically; verify the actual variable names in Project Settings → Environment Variables.
+2. Create a database with the [Prisma Postgres integration on Vercel](https://vercel.com/marketplace/prisma) and connect it to this project. The integration adds `DATABASE_URL` and `POSTGRES_URL` automatically. With another PostgreSQL provider, set these variables manually to its pooled and direct URLs.
 3. Set these variables for **Production** before the first successful deployment:
 
    | Variable | Value |
    | --- | --- |
-   | `DATABASE_URL` | Pooled PostgreSQL URL, with Neon's `-pooler` host when using Neon. |
-   | `DIRECT_URL` | Direct PostgreSQL URL for the **same database**, without `-pooler`. |
+   | `DATABASE_URL` | Pooled PostgreSQL URL for application queries. |
+   | `POSTGRES_URL` | Direct PostgreSQL URL for the **same database**, for migrations. |
    | `JWT_SECRET` | A random secret with at least 32 characters. |
    | `ADMIN_SECRET_KEY` | A private admin passcode with at least 16 characters. |
    | `NEXT_PUBLIC_APP_URL` | The production HTTPS site origin, such as `https://formatic.vercel.app`. |
@@ -22,7 +22,7 @@ This repository contains a Next.js website in `apps/web` and a Chrome extension 
 4. Deploy or redeploy the Vercel project. Its build runs `prisma migrate deploy`, then generates the Prisma client and builds Next.js. A build fails if the database is unavailable or migrations fail, instead of deploying a site with broken sign-in.
 5. Open `/api/status` on the deployed site. `{"signInAvailable":true}` means the app can read the migrated `User` table. Sign in with a new username and passcode. To create the first admin account, use `ADMIN_SECRET_KEY` as the passcode; the first admin account can be named `admin`. Then choose a unique team code, such as `TS31`, and create courses. A fresh database has no team code, courses, or folders.
 
-If you enable **Preview** deployments, connect them to a **separate database or Neon preview branch**. The Vercel build runs migrations in every environment that has database variables. Do not point preview builds at the production database.
+If you enable **Preview** deployments, connect them to a **separate database or database branch**. The Vercel build runs migrations in every environment that has database variables. Do not point preview builds at the production database.
 
 ## Chrome extension
 
