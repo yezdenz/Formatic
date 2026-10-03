@@ -68,11 +68,11 @@ function parseQuestion(element: Element, review: boolean, fallbackIndex: number)
 
 function quizIdentity(): { quizId: string; review: boolean } | null {
   const path = location.pathname;
-  const quiz = path.match(/\/quizzes\/(\d+)(?:\/|$)/);
-  const submission = path.match(/\/quiz_submissions\/(\d+)(?:\/|$)/);
+  const quiz = path.match(/\/courses\/(\d+)\/quizzes\/(\d+)(?:\/|$)/);
+  const submission = path.match(/\/courses\/(\d+)\/quiz_submissions\/(\d+)(?:\/|$)/);
   if (!quiz && !submission) return null;
   return {
-    quizId: quiz?.[1] || `submission_${submission![1]}`,
+    quizId: `${location.origin}_course_${(quiz || submission)![1]}_${quiz ? `quiz_${quiz[2]}` : `submission_${submission![2]}`}`,
     review: !!submission || /\/history(?:\/|$)/.test(path)
   };
 }
