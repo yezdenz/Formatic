@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('Smoke tests are limited to a local hub.');
 const runId = randomUUID();
+const teamCode = `T${runId.replaceAll('-', '').slice(0, 11).toUpperCase()}`;
 let cookie = '';
 let rootId;
 let movedId;
@@ -25,6 +26,7 @@ async function api(path, method = 'GET', body) {
 try {
   const smokeUser = await api('/api/auth/login', 'POST', { username: `smoke_${runId.slice(0, 12)}`, passcode: `test-${runId}` });
   smokeUserId = smokeUser.id;
+  await api('/api/team', 'POST', { code: teamCode });
   const root = await api('/api/folders', 'POST', { name: `Smoke ${runId}` }); rootId = root.id;
   const child = await api('/api/folders', 'POST', { name: 'Unit 1', parentId: rootId });
   const grandchild = await api('/api/folders', 'POST', { name: 'Quiz', parentId: child.id }); movedId = grandchild.id;
@@ -45,6 +47,7 @@ try {
   assert(stored.slice(0, 10).every(question => question.isVerified));
   if (process.env.ADMIN_SECRET_KEY) {
     await api('/api/auth/login', 'POST', { username: 'admin', passcode: process.env.ADMIN_SECRET_KEY });
+    await api('/api/team', 'POST', { code: teamCode });
     const source = stored.find(question => question.plainText.endsWith('question 11?'));
     const target = stored.find(question => question.plainText.endsWith('question 12?'));
     assert(source && target);
@@ -66,5 +69,11 @@ try {
         await db.user.delete({ where: { id: smokeUserId } });
       } finally { await db.$disconnect(); }
     }
+    if (process.env.ADMIN_SECRET_KEY) {
+      try { await api('/api/auth/login', 'POST', { username: 'admin', passcode: process.env.ADMIN_SECRET_KEY }); await api('/api/team', 'POST', { code: 'TS31' }); } catch (error) { console.error('Could not restore admin team:', error); }
+    }
+    const cleanup = new PrismaClient();
+    try { await cleanup.team.deleteMany({ where: { code: teamCode, users: { none: {} }, folders: { none: {} } } }); }
+    finally { await cleanup.$disconnect(); }
   }
 }
