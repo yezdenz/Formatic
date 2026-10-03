@@ -25,8 +25,8 @@ export function preflight(request: NextRequest) {
 
 export function acceptsMutation(request: NextRequest): boolean {
   const origin = request.headers.get('origin');
-  const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).origin : request.nextUrl.origin;
+  const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).origin : null;
   const extensionOrigin = process.env.EXTENSION_ID ? `chrome-extension://${process.env.EXTENSION_ID}` : null;
-  return (!origin || origin === allowedOrigin || origin === extensionOrigin) &&
+  return (!origin || origin === request.nextUrl.origin || origin === configuredOrigin || origin === extensionOrigin) &&
     request.headers.get('content-type')?.startsWith('application/json') === true;
 }
