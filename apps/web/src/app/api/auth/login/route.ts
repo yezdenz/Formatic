@@ -19,10 +19,9 @@ export async function POST(request: NextRequest) {
   try {
     const existing = await prisma.user.findUnique({ where: { username } });
     if (existing && !await compare(passcode, existing.passwordHash)) return apiJson(request, { error: 'Invalid credentials.' }, 401);
-    if (!existing && process.env.ADMIN_SECRET_KEY === passcode && passcode.length < 16) return apiJson(request, { error: 'ADMIN_SECRET_KEY must be at least 16 characters.' }, 500);
     const user = existing ?? await prisma.user.create({ data: {
       username, passwordHash: await hash(passcode, 12),
-      role: process.env.ADMIN_SECRET_KEY && passcode === process.env.ADMIN_SECRET_KEY ? 'ADMIN' : 'USER'
+      role: 'USER'
     } });
     await createSession(user);
     return apiJson(request, { id: user.id, username: user.username, nickname: user.nickname, role: user.role });
