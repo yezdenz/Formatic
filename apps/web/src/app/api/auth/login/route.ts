@@ -12,16 +12,21 @@ export const OPTIONS = preflight;
 
 export async function POST(request: NextRequest) {
   if (!acceptsMutation(request)) return apiJson(request, { error: 'Origin or content type denied.' }, 403);
+  if (!process.env.DATABASE_URL || !process.env.DIRECT_URL || !process.env.JWT_SECRET) return apiJson(request, { error: 'Sign in is unavailable until website storage is configured.' }, 503);
   const parsed = credentials.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiJson(request, { error: 'Enter a username and a passcode of at least 8 characters.' }, 400);
   const { username, passcode } = parsed.data;
-  const existing = await prisma.user.findUnique({ where: { username } });
-  if (existing && !await compare(passcode, existing.passwordHash)) return apiJson(request, { error: 'Invalid credentials.' }, 401);
-  if (!existing && process.env.ADMIN_SECRET_KEY === passcode && passcode.length < 16) return apiJson(request, { error: 'ADMIN_SECRET_KEY must be at least 16 characters.' }, 500);
-  const user = existing ?? await prisma.user.create({ data: {
-    username, passwordHash: await hash(passcode, 12),
-    role: process.env.ADMIN_SECRET_KEY && passcode === process.env.ADMIN_SECRET_KEY ? 'ADMIN' : 'USER'
-  } });
-  await createSession(user);
-  return apiJson(request, { id: user.id, username: user.username, nickname: user.nickname, role: user.role });
+  try {
+    const existing = await prisma.user.findUnique({ where: { username } });
+    if (existing && !await compare(passcode, existing.passwordHash)) return apiJson(request, { error: 'Invalid credentials.' }, 401);
+    if (!existing && process.env.ADMIN_SECRET_KEY === passcode && passcode.length < 16) return apiJson(request, { error: 'ADMIN_SECRET_KEY must be at least 16 characters.' }, 500);
+    const user = existing ?? await prisma.user.create({ data: {
+      username, passwordHash: await hash(passcode, 12),
+      role: process.env.ADMIN_SECRET_KEY && passcode === process.env.ADMIN_SECRET_KEY ? 'ADMIN' : 'USER'
+    } });
+    await createSession(user);
+    return apiJson(request, { id: user.id, username: user.username, nickname: user.nickname, role: user.role });
+  } catch {
+    return apiJson(request, { error: 'Website storage is unavailable. Please try again later.' }, 503);
+  }
 }
