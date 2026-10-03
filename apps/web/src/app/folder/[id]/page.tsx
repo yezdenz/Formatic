@@ -1,8 +1,9 @@
-import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { CreateFolder } from '@/components/CreateFolder';
 import { FolderActions } from '@/components/FolderActions';
 import { currentUser } from '@/lib/auth';
+import { Plus } from 'lucide-react';
+import { RepositoryList } from '@/components/RepositoryList';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,12 +13,12 @@ export default async function FolderPage({ params }: { params: Promise<{ id: str
     prisma.folder.findMany({ where: { parentId: id }, orderBy: { name: 'asc' } }),
     prisma.question.findMany({ where: { folderId: id }, include: { choices: true }, orderBy: { createdAt: 'desc' } }),
     prisma.folder.findUnique({ where: { id } }),
-    prisma.folder.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    prisma.folder.findMany({ select: { id: true, name: true, teamId: true }, orderBy: { name: 'asc' } }),
     currentUser()
   ]);
-  return <><CreateFolder parentId={id} />
-    {folder && user && (user.role === 'ADMIN' || user.id === folder.creatorId) && <FolderActions id={id} initialName={folder.name} parentId={folder.parentId} destinations={destinations} />}
-    <div className="grid">{children.map(child => <Link className="folder-card" href={`/folder/${child.id}`} key={child.id}><h2>{child.name}</h2><p>{child.description}</p></Link>)}</div>
-    <section className="panel"><h2>{questions.length} questions</h2>{questions.map(question => <article className="question" key={question.id}><strong>{question.plainText}</strong><p className="muted">{question.isVerified ? 'Verified answer' : 'Answer unresolved'} · Seen {question.timesEncountered} times{question.hasConflict ? ' · Answer conflict' : ''}</p></article>)}</section>
+  return <>
+    <RepositoryList folders={children.map(child => ({ ...child, canRename: user?.role === 'ADMIN' || child.creatorId === user?.id }))} action={<details className="new-folder"><summary className="button"><Plus size={14} /> New {folder?.parentId ? 'subfolder' : 'folder'}</summary><CreateFolder parentId={id} /></details>} />
+    <section className="panel" style={{ marginTop: 28 }}><h2 style={{ fontSize: 16, marginTop: 0 }}>Questions</h2>{questions.map(question => <article className="question" key={question.id}><strong>{question.plainText}</strong></article>)}{!questions.length && <p className="muted">No questions in this folder yet.</p>}</section>
+    {folder && user && (user.role === 'ADMIN' || user.id === folder.creatorId) && <FolderActions id={id} initialName={folder.name} parentId={folder.parentId} destinations={destinations.filter(destination => destination.teamId === user.teamId)} />}
   </>;
 }
