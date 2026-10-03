@@ -12,6 +12,6 @@ export function observeQuiz(container: Element, onChange: () => void): MutationO
       setTimeout(onChange, 0);
     }
   });
-  observer.observe(container, { childList: true, subtree: true });
+  observer.observe(container, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'title', 'aria-checked'] });
   return observer;
 }
