@@ -12,7 +12,7 @@ const input = z.object({ name: z.string().trim().min(1).max(100).optional(), par
 async function allowed(id: string) {
   const user = await currentUser();
   const folder = await prisma.folder.findUnique({ where: { id } });
-  return user && folder && (user.role === 'ADMIN' || folder.creatorId === user.id) ? folder : null;
+  return user && folder && folder.teamId === user.teamId && (user.role === 'ADMIN' || folder.creatorId === user.id) ? folder : null;
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -26,8 +26,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     let ancestor: string | null = nextParent;
     while (ancestor) {
       if (ancestor === id) return apiJson(request, { error: 'A folder cannot be moved into itself or a descendant.' }, 400);
-      const found: { parentId: string | null } | null = await prisma.folder.findUnique({ where: { id: ancestor }, select: { parentId: true } });
-      if (!found) return apiJson(request, { error: 'Parent folder not found.' }, 404);
+      const found: { parentId: string | null; teamId: string | null } | null = await prisma.folder.findUnique({ where: { id: ancestor }, select: { parentId: true, teamId: true } });
+      const user = await currentUser();
+      if (!found || found.teamId !== user?.teamId) return apiJson(request, { error: 'Parent folder not found.' }, 404);
       ancestor = found.parentId;
     }
   }
