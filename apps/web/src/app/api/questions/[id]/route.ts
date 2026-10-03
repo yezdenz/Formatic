@@ -16,8 +16,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { id } = await params;
   const parsed = input.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiJson(request, { error: 'Invalid question update.' }, 400);
-  const existing = await prisma.question.findUnique({ where: { id }, include: { choices: true } });
-  if (!existing) return apiJson(request, { error: 'Question not found.' }, 404);
+  const existing = await prisma.question.findUnique({ where: { id }, include: { choices: true, folder: true } });
+  if (!existing || existing.folder.teamId !== user.teamId) return apiJson(request, { error: 'Question not found.' }, 404);
   if (parsed.data.choices?.some(choice => !existing.choices.some(item => item.id === choice.id))) return apiJson(request, { error: 'Choice does not belong to question.' }, 400);
   const updated = await prisma.$transaction(async tx => {
     for (const choice of parsed.data.choices || []) await tx.choice.update({ where: { id: choice.id }, data: { isCorrect: choice.isCorrect } });
@@ -39,8 +39,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const user = await currentUser();
   if (user?.role !== 'ADMIN') return apiJson(request, { error: 'Admin access required.' }, 403);
   const { id } = await params;
-  const existing = await prisma.question.findUnique({ where: { id } });
-  if (!existing) return apiJson(request, { error: 'Question not found.' }, 404);
+  const existing = await prisma.question.findUnique({ where: { id }, include: { folder: true } });
+  if (!existing || existing.folder.teamId !== user.teamId) return apiJson(request, { error: 'Question not found.' }, 404);
   await prisma.$transaction(async tx => {
     await tx.pushBatchItem.deleteMany({ where: { questionId: id } });
     await tx.question.delete({ where: { id } });
