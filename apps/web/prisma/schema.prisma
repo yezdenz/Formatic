@@ -1,0 +1,143 @@
+datasource db {
+  provider  = "postgresql" // PostgreSQL for Vercel serverless deployment
+  url       = env("DATABASE_URL") // Connection-pooled URL (e.g., PgBouncer / Neon pooler)
+  directUrl = env("DIRECT_URL")   // Direct connection for migrations
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  MULTIPLE_ANSWERS
+  TRUE_FALSE
+  SHORT_ANSWER
+  ESSAY
+}
+
+model User {
+  id           String     @id @default(uuid())
+  username     String     @unique
+  passwordHash String     // Simple argon2 or bcrypt hash
+  nickname     String?
+  role         Role       @default(USER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  submissions  PushBatch[]
+  folders      Folder[]   @relation("UserFolders")
+  activityLogs AdminLog[]
+}
+
+model Folder {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  color       String?    @default("#2F80ED")
+  icon        String?    @default("folder")
+
+  // Hierarchical nesting
+  parentId    String?
+  parent      Folder?    @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[]   @relation("FolderHierarchy")
+
+  creatorId   String
+  creator     User       @relation("UserFolders", fields: [creatorId], references: [id])
+
+  questions   Question[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([parentId])
+}
+
+model Question {
+  id              String       @id @default(uuid())
+  hash            String       @unique // Normalized SHA-256
+  text            String       // Raw rendered question text (markdown/HTML preserved)
+  plainText       String       // Stripped text for search
+  questionType    QuestionType @default(MULTIPLE_CHOICE)
+  explanation     String?      // Canvas feedback explanation if provided
+  isVerified      Boolean      @default(false)
+  hasConflict     Boolean      @default(false)
+
+  // Statistics
+  timesEncountered Int         @default(1)
+  timesCorrect     Int         @default(0)
+  timesIncorrect   Int         @default(0)
+
+  folderId        String
+  folder          Folder       @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  choices         Choice[]
+  aliases         QuestionAlias[]
+  pushItems       PushBatchItem[]
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([folderId])
+  @@index([hash])
+}
+
+model QuestionAlias {
+  hash       String   @id
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([questionId])
+}
+
+model Choice {
+  id          String   @id @default(uuid())
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text        String
+  isCorrect   Boolean? // null if unconfirmed, true/false if known
+  feedback    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([questionId])
+}
+
+model PushBatch {
+  id           String          @id @default(uuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id])
+  canvasCourse String?
+  quizTitle    String?
+  totalItems   Int
+  newItems     Int
+  mergedItems  Int
+
+  items        PushBatchItem[]
+  createdAt    DateTime        @default(now())
+}
+
+model PushBatchItem {
+  id          String    @id @default(uuid())
+  batchId     String
+  batch       PushBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  wasNew      Boolean
+}
+
+model AdminLog {
+  id          String   @id @default(uuid())
+  adminId     String
+  admin       User     @relation(fields: [adminId], references: [id])
+  action      String   // E.g., "MERGE_QUESTIONS", "DELETE_QUESTION", "UPDATE_ANSWER"
+  targetId    String
+  details     String?  // JSON formatted details
+  createdAt   DateTime @default(now())
+}
