@@ -428,14 +428,14 @@ The web repository must be fully optimized for deployment on **Vercel** serverle
 
 ### 6.2 Serverless Database & Connection Pooling
 > [!IMPORTANT]
-> Local SQLite files (`file:./dev.db`) **cannot** persist data in Vercel serverless functions (ephemeral filesystem). Production must use a managed PostgreSQL provider (Vercel Postgres, Neon, Supabase, or Railway) with connection pooling enabled.
+> Local SQLite files (`file:./dev.db`) **cannot** persist data in Vercel serverless functions (ephemeral filesystem). Production must use a managed PostgreSQL provider such as Prisma Postgres, Neon, Supabase, or Railway with connection pooling enabled.
 
 Configure `apps/web/prisma/schema.prisma` with direct and pooled connection strings:
 ```prisma
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL") // Connection-pooled URL (PgBouncer/Neon pooler)
-  directUrl = env("DIRECT_URL")   // Direct URL for schema migrations
+  url       = env("DATABASE_URL") // Pooled URL for application queries
+  directUrl = env("POSTGRES_URL") // Direct URL for schema migrations
 }
 ```
 
@@ -479,7 +479,7 @@ To prevent build-time static generation failures with database calls:
 ### 6.5 Required Environment Variables on Vercel
 Codex must include `.env.example` documenting all variables required in the Vercel dashboard:
 - `DATABASE_URL`: Serverless pooled PostgreSQL connection URL.
-- `DIRECT_URL`: Direct PostgreSQL connection URL for Prisma migrations.
+- `POSTGRES_URL`: Direct PostgreSQL connection URL for Prisma migrations.
 - `JWT_SECRET`: Random 256-bit secret string for signing soft-login session tokens.
 - `ADMIN_SECRET_KEY`: Passcode used to bootstrap and authorize admin accounts.
 - `NEXT_PUBLIC_APP_URL`: Production Vercel domain (e.g., `https://formatic.vercel.app`).
