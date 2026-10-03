@@ -2,7 +2,7 @@
 
 > **Collaborative Canvas LMS Formative Test Saver, Question Deduplication Engine & Study Suite**
 
-Formatic is a tool for students to collaboratively preserve, curate, and master questions from formative Canvas LMS quizzes. It combines a **stealthy Chrome Extension (Manifest V3)** that automatically captures quiz questions without triggering Canvas anti-cheat or proctoring alerts, and a **centralized Web Hub** built with an Aternos/Minecraft-inspired blocky blue-and-white aesthetic.
+Formatic is a website and Chrome extension for saving and studying questions from permitted formative Canvas quizzes. Students sign in, enter a shared class code such as `TS31`, and see that class's folders on a simple dashboard.
 
 ---
 
@@ -16,14 +16,14 @@ Formatic is a tool for students to collaboratively preserve, curate, and master 
 ### 2. 🚀 Git-Like Push & Deduplication Repository
 - **Collaborative Pushing**: Classmates can push their staged formative quiz attempts to a shared repository with a single click.
 - **Smart SHA-256 Deduplication**: Identifies repeat questions across attempts and students. Automatically merges new answer choices, records confirmed correct keys, and tracks encounter frequency and error statistics.
-- **Nested Course Folders**: Organize questions hierarchically (e.g., `Biology 101` ➔ `Unit 3: Genetics` ➔ `Formative Quiz 2`). Full folder CRUD with drag-and-drop / nesting support.
+- **Courses and Folders**: Create courses at the top level, then add and rename folders inside them (e.g., `Biology 101` ➔ `Unit 3: Genetics` ➔ `Formative Quiz 2`).
 
 ### 3. 🔑 Soft Login & Admin Consistency Guard
 - **Frictionless Soft Login**: No tedious email verification links or OAuth setups. Enter a username and passcode to immediately start collaborating.
 - **Role-Based Consistency (Admin)**: Designated admin users can moderate questions, edit answers, resolve conflict flags, and reorganize global folder trees.
 
-### 4. 🎮 Aternos / Minecraft-Themed Study Suite
-- **Blocky White & Blue Aesthetic**: Clean, high-contrast, tactile UI inspired by Aternos and Minecraft with 3D beveled buttons and crisp tabular layouts.
+### 4. 🎮 Study Suite
+- **Class Repository**: A greeting, unique class code, and searchable folder list in a clean workspace inspired by Quest Log's navigation and panels.
 - **StudyStack Side-by-Side Table**: Dense two-column study view (Question vs. Answer/Explanation) with a one-click "Hide Answers" mode for self-testing.
 - **Practice Test Engine**: Configurable mock quizzes with instant-feedback or exam mode, randomized choices, and live scoring.
 - **Flashcard Deck**: 3D blocky flip cards with keyboard navigation (`[Space]` to flip, `[1]` for review, `[2]` for mastered).
@@ -44,7 +44,7 @@ Formatic is a tool for students to collaboratively preserve, curate, and master 
 |---|---|
 | **Chrome Extension** | Manifest V3, TypeScript, Vite, `chrome.storage.local` |
 | **Web Application** | Next.js 16 (App Router), React, TypeScript |
-| **Styling** | Tailwind CSS (Custom Aternos Design Tokens), `lucide-react` |
+| **Styling** | Tailwind CSS and custom CSS |
 | **Database & ORM** | PostgreSQL, Prisma ORM |
 | **Authentication** | Soft-login (Stateless JWT / HttpOnly Cookie), RBAC |
 
@@ -76,6 +76,7 @@ npx prisma db seed
 npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) to view Formatic Hub.
+The interactive preview at [http://localhost:3000/demo](http://localhost:3000/demo) starts with blank sign-in fields, no team code, and no folders. It runs only in the current browser tab; real sign-in and shared folders require a PostgreSQL connection.
 Set every value in `.env` before starting. `ADMIN_SECRET_KEY` must contain at least 16 characters and `JWT_SECRET` at least 32. The seed creates an `admin` account whose passcode is `ADMIN_SECRET_KEY`.
 With the local hub running, run `npm run smoke` from `apps/web` to check nested folders, question pushes, deduplication, and admin merge aliases. This test creates temporary records and removes its test folders afterward.
 
