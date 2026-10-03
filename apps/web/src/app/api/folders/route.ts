@@ -15,8 +15,9 @@ const input = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  if (!await currentUser()) return apiJson(request, { error: 'Unauthorized' }, 401);
-  const folders = await prisma.folder.findMany({ orderBy: { name: 'asc' } });
+  const user = await currentUser();
+  if (!user) return apiJson(request, { error: 'Unauthorized' }, 401);
+  const folders = await prisma.folder.findMany({ where: user.teamId ? { teamId: user.teamId } : { creatorId: user.id, teamId: null }, orderBy: { name: 'asc' } });
   type Node = (typeof folders)[number] & { children: Node[] };
   const byId = new Map(folders.map(folder => [folder.id, { ...folder, children: [] as Node[] }]));
   const roots: Node[] = [];
@@ -31,9 +32,10 @@ export async function POST(request: NextRequest) {
   if (!acceptsMutation(request)) return apiJson(request, { error: 'Origin or content type denied.' }, 403);
   const user = await currentUser();
   if (!user) return apiJson(request, { error: 'Unauthorized' }, 401);
+  if (!user.teamId) return apiJson(request, { error: 'Set your team code before creating folders.' }, 400);
   const parsed = input.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiJson(request, { error: 'Invalid folder data.' }, 400);
-  if (parsed.data.parentId && !await prisma.folder.findUnique({ where: { id: parsed.data.parentId } })) return apiJson(request, { error: 'Parent folder not found.' }, 404);
-  const folder = await prisma.folder.create({ data: { ...parsed.data, creatorId: user.id } });
+  if (parsed.data.parentId && !await prisma.folder.findFirst({ where: { id: parsed.data.parentId, teamId: user.teamId } })) return apiJson(request, { error: 'Parent folder not found.' }, 404);
+  const folder = await prisma.folder.create({ data: { ...parsed.data, creatorId: user.id, teamId: user.teamId } });
   return apiJson(request, folder, 201);
 }
