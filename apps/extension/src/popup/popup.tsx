@@ -7,6 +7,7 @@ import './style.css';
 const defaultHubUrl = 'https://formatic-iota.vercel.app';
 type Folder = { id: string; name: string; children?: Folder[] };
 type Session = { id: string; username: string; nickname?: string | null; teamId?: string | null; team?: { code: string } | null };
+type MatchStatus = 'loading' | 'existing' | 'absent' | 'unknown';
 
 function destinationOptions(folders: Folder[], depth = 0): { id: string; label: string; depth: number }[] {
   return folders.flatMap(folder => [
@@ -32,11 +33,12 @@ function errorMessage(result: unknown, fallback: string): string {
     ? result.error : fallback;
 }
 
-function QuestionPreview({ question }: { question: ScrapedQuestion }) {
+function QuestionPreview({ question, match }: { question: ScrapedQuestion; match: MatchStatus }) {
   return <li className="question-preview">
     <span className="question-text">{question.questionText}</span>
-    {question.choices.length > 0 && <ul className="choice-list">{question.choices.map((choice, index) => <li className={choice.isCorrect === true ? 'correct-choice' : ''} key={index}>{choice.isCorrect === true ? '✓ ' : ''}{choice.text}</li>)}</ul>}
+    {question.choices.length > 0 && <ul className="choice-list">{question.choices.map((choice, index) => <li className={choice.isCorrect === true ? 'correct-choice' : choice.isSelected && choice.isCorrect === false ? 'wrong-choice' : ''} key={index}>{choice.isCorrect === true ? '✓ ' : choice.isSelected && choice.isCorrect === false ? '× ' : ''}{choice.text}{choice.isSelected ? ' · selected' : ''}</li>)}</ul>}
     <span className="question-meta">{question.choices.some(choice => choice.isCorrect === true) ? 'Answer found' : 'No answer key yet'}</span>
+    <span className={`match-badge match-${match}`}>{match === 'existing' ? 'Already in repository' : match === 'absent' ? 'Not in repository yet' : match === 'loading' ? 'Checking repository…' : 'Repository status unknown'}</span>
   </li>;
 }
 
@@ -52,11 +54,51 @@ function App() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [matches, setMatches] = useState<Record<string, MatchStatus>>({});
+  const [matchError, setMatchError] = useState('');
 
   const destinations = useMemo(() => destinationOptions(folders), [folders]);
   const selectedAttempts = attempts.filter(attempt => selected.includes(attempt.quizId));
   const selectedCount = selectedAttempts.reduce((sum, attempt) => sum + attempt.questions.length, 0);
   const totalCount = attempts.reduce((sum, attempt) => sum + attempt.questions.length, 0);
+
+  useEffect(() => {
+    const entries = attempts.flatMap(attempt => attempt.questions.map((question, index) => ({
+      key: `${attempt.quizId}:${index}`, text: question.questionText
+    })));
+    if (!session?.teamId || !entries.length) {
+      setMatches({});
+      setMatchError('');
+      return;
+    }
+    let cancelled = false;
+    setMatches(Object.fromEntries(entries.map(entry => [entry.key, 'loading'])));
+    setMatchError('');
+    void (async () => {
+      try {
+        const result: Record<string, MatchStatus> = {};
+        for (let index = 0; index < entries.length; index += 100) {
+          const batch = entries.slice(index, index + 100);
+          const response = await fetch(`${normalizeHubUrl(hubUrl)}/api/sync/match`, {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ questions: batch.map(entry => entry.text) })
+          });
+          const payload = await readResult(response) as { existing?: boolean[] };
+          if (!response.ok || !Array.isArray(payload.existing) || payload.existing.length !== batch.length ||
+              !payload.existing.every(value => typeof value === 'boolean')) throw new Error('Repository lookup failed.');
+          batch.forEach((entry, offset) => { result[entry.key] = payload.existing![offset] ? 'existing' : 'absent'; });
+        }
+        if (!cancelled) setMatches(result);
+      } catch {
+        if (!cancelled) {
+          setMatches(Object.fromEntries(entries.map(entry => [entry.key, 'unknown'])));
+          setMatchError('Repository matches could not be checked. You can still push selected questions.');
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session?.teamId, attempts, hubUrl]);
 
   useEffect(() => {
     void listAttempts().then(items => { setAttempts(items); setSelected(items.map(item => item.quizId)); });
@@ -199,8 +241,9 @@ function App() {
         {attempts.length ? <div className="attempt-list">{attempts.map(attempt => <article className="attempt-card" key={attempt.quizId}>
           <div className="attempt-top"><label className="attempt-select"><input type="checkbox" checked={selected.includes(attempt.quizId)} onChange={() => toggleAttempt(attempt.quizId)} disabled={busy} /><span>{attempt.questions[0]?.quizTitle || `Quiz ${attempt.quizId}`}</span></label><button className="remove-button" onClick={() => void discardAttempt(attempt.quizId)} disabled={busy} aria-label="Remove staged quiz">×</button></div>
           <p className="attempt-meta">{attempt.questions[0]?.courseTitle || 'Canvas quiz'} · {attempt.questions.length} questions</p>
-          <details><summary>Review questions</summary><ol>{attempt.questions.map((question, index) => <QuestionPreview key={`${question.canvasQuestionId}-${index}`} question={question} />)}</ol></details>
+          <details><summary>Review questions</summary><ol>{attempt.questions.map((question, index) => <QuestionPreview key={`${question.canvasQuestionId}-${index}`} question={question} match={matches[`${attempt.quizId}:${index}`] || 'unknown'} />)}</ol></details>
         </article>)}</div> : <div className="empty-state"><span aria-hidden="true">□</span><strong>No questions staged yet</strong><p>Finish a Canvas formative quiz, then open this popup to review what was captured.</p></div>}
+        {matchError && <p className="hint">{matchError}</p>}
         <section className="destination-section"><p className="eyebrow">02 · Choose destination</p><h2>Save to course or folder</h2>
           <label className="destination-label">Course / folder<select value={folderId} onChange={event => setFolderId(event.target.value)} disabled={!destinations.length || busy}><option value="">Select a destination…</option>{destinations.map(folder => <option key={folder.id} value={folder.id}>{`${'　'.repeat(folder.depth)}${folder.depth ? '↳ ' : ''}${folder.label}`}</option>)}</select></label>
           {!destinations.length && <p className="hint">Create a course in your repository first. <button className="text-button" onClick={() => openWebsite()}>Open website ↗</button></p>}
