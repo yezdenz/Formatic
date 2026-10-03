@@ -97,7 +97,7 @@ npm run build
 
 ### Vercel deployment
 
-See [Deployment guide](DEPLOYMENT.md) for the Vercel project settings, Neon database connection, environment variables, and migration flow. The Vercel build applies the checked-in migrations before building the website. The extension needs the deployed HTTPS domain in its popup settings and its actual ID in the website's `EXTENSION_ID` variable.
+See [Deployment guide](DEPLOYMENT.md) for the Vercel project settings, Prisma Postgres database connection, environment variables, and migration flow. The Vercel build applies the checked-in migrations before building the website. The extension needs the deployed HTTPS domain in its popup settings and its actual ID in the website's `EXTENSION_ID` variable.
 
 ---
 
