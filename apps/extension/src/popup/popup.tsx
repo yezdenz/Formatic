@@ -58,8 +58,6 @@ function App() {
     setMessage('Pushing staged questions…');
     const total = attempts.reduce((sum, attempt) => sum + attempt.questions.length, 0);
     let completed = 0;
-    let newItems = 0;
-    let mergedItems = 0;
     try {
       for (const attempt of attempts) {
         let remaining = [...attempt.questions];
@@ -73,8 +71,6 @@ function App() {
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || 'Push failed.');
-          newItems += result.newItems;
-          mergedItems += result.mergedItems;
           completed += batch.length;
           setProgress(Math.round(completed / total * 100));
           remaining = remaining.slice(batch.length);
@@ -83,7 +79,7 @@ function App() {
           setAttempts(await listAttempts());
         }
       }
-      setMessage(`Pushed ${completed}: ${newItems} new, ${mergedItems} merged.`);
+      setMessage('Saved to Formatic.');
     } catch (error) {
       setMessage(`${completed} pushed. ${error instanceof Error ? error.message : 'Push failed.'}`);
     } finally {
@@ -92,16 +88,14 @@ function App() {
   }
 
   const questions = attempts.flatMap(attempt => attempt.questions);
-  const verified = questions.filter(question => question.choices.some(choice => choice.isCorrect === true)).length;
   return <main>
     <header><h1>FORMATIC</h1><span>STAGING TRAY</span></header>
     <label>Hub URL<input value={hubUrl} onChange={event => setHubUrl(event.target.value)} /></label>
     <button onClick={() => void connect()} disabled={busy}>Connect</button>
     <p className="status">{session ? `Signed in as ${session.username}` : 'Not connected'}</p>
-    <div className="counts"><strong>{questions.length} questions</strong><span>{verified} verified answers</span></div>
+    <div className="counts"><strong>{questions.length ? `${questions.length} ready to save` : 'Nothing staged yet'}</strong></div>
     <section className="attempts">{attempts.map(attempt => <article key={attempt.quizId}>
-      <strong>Quiz {attempt.quizId}</strong><small>{attempt.questions.length} questions</small>
-      {attempt.questions.slice(0, 3).map(question => <p key={question.canvasQuestionId}>{question.questionText}</p>)}
+      <strong>{attempt.questions[0]?.quizTitle || `Quiz ${attempt.quizId}`}</strong><small>{attempt.questions.length} staged</small>
     </article>)}</section>
     <label>Target folder<select value={folderId} onChange={event => setFolderId(event.target.value)}>
       {flatten(folders).map(folder => <option key={folder.id} value={folder.id}>{folder.label}</option>)}
