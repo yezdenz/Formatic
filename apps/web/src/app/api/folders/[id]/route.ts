@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { currentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { acceptsMutation, apiJson, preflight } from '@/lib/cors';
+import { canModerate } from '@/lib/permissions';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ const input = z.object({ name: z.string().trim().min(1).max(100).optional(), par
 async function allowed(id: string) {
   const user = await currentUser();
   const folder = await prisma.folder.findUnique({ where: { id } });
-  return user && folder && folder.teamId === user.teamId && (user.role === 'ADMIN' || folder.creatorId === user.id) ? folder : null;
+  return user && folder && folder.teamId === user.teamId && (canModerate(user) || folder.creatorId === user.id) ? folder : null;
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
