@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return apiJson(request, { error: 'Use 2-12 letters or numbers for the team code.' }, 400);
   const team = await prisma.$transaction(async tx => {
     const team = await tx.team.upsert({ where: { code: parsed.data.code }, update: {}, create: { code: parsed.data.code } });
-    await tx.user.update({ where: { id: user.id }, data: { teamId: team.id } });
+    await tx.user.update({ where: { id: user.id }, data: {
+      teamId: team.id,
+      ...(user.role === 'MOD' && user.teamId !== team.id ? { role: 'USER' as const } : {})
+    } });
     if (!user.teamId) await tx.folder.updateMany({ where: { creatorId: user.id, teamId: null }, data: { teamId: team.id } });
     return team;
   });
