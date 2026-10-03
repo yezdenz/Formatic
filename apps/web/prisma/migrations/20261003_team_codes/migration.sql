@@ -1,0 +1,16 @@
+CREATE TABLE "Team" (
+    "id" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Team_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "Team_code_key" ON "Team"("code");
+
+ALTER TABLE "User" ADD COLUMN "teamId" TEXT;
+ALTER TABLE "Folder" ADD COLUMN "teamId" TEXT;
+
+CREATE INDEX "Folder_teamId_idx" ON "Folder"("teamId");
+
+ALTER TABLE "User" ADD CONSTRAINT "User_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Folder" ADD CONSTRAINT "Folder_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
