@@ -4,6 +4,7 @@ import { currentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { acceptsMutation, apiJson, preflight } from '@/lib/cors';
 import { normalizeText } from '@/lib/deduplicate';
+import { canModerate } from '@/lib/permissions';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ const input = z.object({ targetId: z.string().uuid(), sourceId: z.string().uuid(
 export async function POST(request: NextRequest) {
   if (!acceptsMutation(request)) return apiJson(request, { error: 'Origin or content type denied.' }, 403);
   const user = await currentUser();
-  if (user?.role !== 'ADMIN') return apiJson(request, { error: 'Admin access required.' }, 403);
+  if (!user || !canModerate(user)) return apiJson(request, { error: 'Moderator access required.' }, 403);
   const parsed = input.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiJson(request, { error: 'Select two different questions.' }, 400);
   const { targetId, sourceId } = parsed.data;
