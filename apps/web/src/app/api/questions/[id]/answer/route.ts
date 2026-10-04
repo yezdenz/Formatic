@@ -20,25 +20,30 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { id } = await params;
   const question = await prisma.question.findUnique({ where: { id }, include: { folder: true, choices: true } });
   if (!question || question.folder.teamId !== user.teamId) return apiJson(request, { error: 'Question not found.' }, 404);
-  if (question.isVerified || question.hasConflict || question.choices.some(choice => choice.isCorrect === true)) {
-    return apiJson(request, { error: 'This answer has already been set or needs moderator review.' }, 409);
+  const userAnswer = question.answerSource === 'USER';
+  const unresolved = !question.isVerified && !question.choices.some(choice => choice.isCorrect === true);
+  if (question.hasConflict || (!userAnswer && !unresolved)) {
+    return apiJson(request, { error: 'This answer is protected or needs moderator review.' }, 409);
   }
   if (!['MULTIPLE_CHOICE', 'MULTIPLE_ANSWERS', 'TRUE_FALSE'].includes(question.questionType) ||
       (question.questionType !== 'MULTIPLE_ANSWERS' && choiceIds.length !== 1) ||
-      choiceIds.some(choiceId => !question.choices.some(choice => choice.id === choiceId && choice.isCorrect !== false))) {
+      choiceIds.some(choiceId => !question.choices.some(choice => choice.id === choiceId && (userAnswer || choice.isCorrect !== false)))) {
     return apiJson(request, { error: 'Choose a valid answer for this question.' }, 400);
   }
 
   const resolved = await prisma.$transaction(async tx => {
     const claimed = await tx.question.updateMany({
-      where: { id, isVerified: false, hasConflict: false, choices: { none: { isCorrect: true } } },
-      data: { isVerified: true }
+      where: { id, hasConflict: false, OR: [
+        { answerSource: 'USER' },
+        { isVerified: false, choices: { none: { isCorrect: true } } }
+      ] },
+      data: { isVerified: true, answerSource: 'USER' }
     });
     if (!claimed.count) return false;
     await tx.choice.updateMany({ where: { questionId: id }, data: { isCorrect: false } });
     await tx.choice.updateMany({ where: { questionId: id, id: { in: choiceIds } }, data: { isCorrect: true } });
     await tx.adminLog.create({ data: {
-      adminId: user.id, action: 'USER_SET_ANSWER', targetId: id,
+      adminId: user.id, action: userAnswer ? 'USER_UPDATE_ANSWER' : 'USER_SET_ANSWER', targetId: id,
       details: JSON.stringify({ choiceIds })
     } });
     return true;
