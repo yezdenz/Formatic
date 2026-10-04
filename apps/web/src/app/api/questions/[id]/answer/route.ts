@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { currentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { acceptsMutation, apiJson, preflight } from '@/lib/cors';
+import { canSetTeamAnswer } from '@/lib/answerResolution';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,12 +22,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const question = await prisma.question.findUnique({ where: { id }, include: { folder: true, choices: true } });
   if (!question || question.folder.teamId !== user.teamId) return apiJson(request, { error: 'Question not found.' }, 404);
   const userAnswer = question.answerSource === 'USER';
-  const unresolved = !question.isVerified && !question.choices.some(choice => choice.isCorrect === true);
-  if (question.hasConflict || (!userAnswer && !unresolved)) {
+  if (!canSetTeamAnswer(question)) {
     return apiJson(request, { error: 'This answer is protected or needs moderator review.' }, 409);
   }
-  if (!['MULTIPLE_CHOICE', 'MULTIPLE_ANSWERS', 'TRUE_FALSE'].includes(question.questionType) ||
-      (question.questionType !== 'MULTIPLE_ANSWERS' && choiceIds.length !== 1) ||
+  if ((question.questionType !== 'MULTIPLE_ANSWERS' && choiceIds.length !== 1) ||
       choiceIds.some(choiceId => !question.choices.some(choice => choice.id === choiceId && (userAnswer || choice.isCorrect !== false)))) {
     return apiJson(request, { error: 'Choose a valid answer for this question.' }, 400);
   }
@@ -35,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const claimed = await tx.question.updateMany({
       where: { id, hasConflict: false, OR: [
         { answerSource: 'USER' },
-        { isVerified: false, choices: { none: { isCorrect: true } } }
+        { choices: { none: { isCorrect: true } } }
       ] },
       data: { isVerified: true, answerSource: 'USER' }
     });
