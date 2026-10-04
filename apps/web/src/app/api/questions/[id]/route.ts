@@ -29,6 +29,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!existing || existing.folder.teamId !== user.teamId) return apiJson(request, { error: 'Question not found.' }, 404);
   if (parsed.data.choices?.some(choice => !existing.choices.some(item => item.id === choice.id))) return apiJson(request, { error: 'Choice does not belong to question.' }, 400);
   if (parsed.data.folderId && !await prisma.folder.findFirst({ where: { id: parsed.data.folderId, teamId: user.teamId } })) return apiJson(request, { error: 'Destination folder not found.' }, 404);
+  const answerChanged = !!parsed.data.choices?.some(choice => choice.isCorrect !== existing.choices.find(item => item.id === choice.id)?.isCorrect) ||
+    (existing.hasConflict && parsed.data.hasConflict === false);
   const nextHash = parsed.data.questionText && user.teamId ? scopedQuestionHash(user.teamId, parsed.data.questionText) : existing.hash;
   if (nextHash !== existing.hash) {
     const [duplicate, alias] = await Promise.all([
@@ -46,7 +48,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         ...(parsed.data.folderId ? { folderId: parsed.data.folderId } : {}),
         explanation: parsed.data.explanation === undefined ? existing.explanation : parsed.data.explanation,
         hasConflict: parsed.data.hasConflict ?? existing.hasConflict,
-        isVerified: choices.some(choice => choice.isCorrect === true)
+        isVerified: choices.some(choice => choice.isCorrect === true),
+        answerSource: answerChanged ? (choices.some(choice => choice.isCorrect === true) ? 'MODERATOR' : null) : existing.answerSource
       } });
       if (nextHash !== existing.hash) await tx.questionAlias.upsert({ where: { hash: existing.hash }, update: { questionId: id }, create: { hash: existing.hash, questionId: id } });
       await tx.adminLog.create({ data: { adminId: user.id, action: 'UPDATE_QUESTION', targetId: id, details: JSON.stringify({ before: existing, changes: parsed.data }) } });
