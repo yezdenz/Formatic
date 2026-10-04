@@ -60,6 +60,9 @@ function App() {
   const destinations = useMemo(() => destinationOptions(folders), [folders]);
   const selectedAttempts = attempts.filter(attempt => selected.includes(attempt.quizId));
   const selectedCount = selectedAttempts.reduce((sum, attempt) => sum + attempt.questions.length, 0);
+  const hasIncompletePrompt = selectedAttempts.some(attempt =>
+    attempt.questions.some(question => /^Question\s*#?\d+[:.]?\s*$/i.test(question.questionText))
+  );
   const totalCount = attempts.reduce((sum, attempt) => sum + attempt.questions.length, 0);
 
   useEffect(() => {
@@ -177,7 +180,7 @@ function App() {
   }
 
   async function push() {
-    if (!session || !folderId || !selectedCount) return;
+    if (!session || !folderId || !selectedCount || hasIncompletePrompt) return;
     setBusy(true);
     setProgress(0);
     setMessage('Saving selected questions…');
@@ -248,7 +251,8 @@ function App() {
           <label className="destination-label">Course / folder<select value={folderId} onChange={event => setFolderId(event.target.value)} disabled={!destinations.length || busy}><option value="">Select a destination…</option>{destinations.map(folder => <option key={folder.id} value={folder.id}>{`${'　'.repeat(folder.depth)}${folder.depth ? '↳ ' : ''}${folder.label}`}</option>)}</select></label>
           {!destinations.length && <p className="hint">Create a course in your repository first. <button className="text-button" onClick={() => openWebsite()}>Open website ↗</button></p>}
         </section>
-        <button className="button button-primary push-button" onClick={() => void push()} disabled={!session.teamId || !folderId || !selectedCount || busy}>{busy ? `Saving ${progress}%…` : `Push ${selectedCount} question${selectedCount === 1 ? '' : 's'} →`}</button>
+        {hasIncompletePrompt && <p className="hint">A selected quiz only has a generic question heading. Reopen its Canvas page to capture the full prompt, or unselect that quiz.</p>}
+        <button className="button button-primary push-button" onClick={() => void push()} disabled={!session.teamId || !folderId || !selectedCount || hasIncompletePrompt || busy}>{busy ? `Saving ${progress}%…` : `Push ${selectedCount} question${selectedCount === 1 ? '' : 's'} →`}</button>
         {busy && <div className="progress" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><div style={{ width: `${progress}%` }} /></div>}
       </>}
       {message && <p className="message" role="status">{message}</p>}
