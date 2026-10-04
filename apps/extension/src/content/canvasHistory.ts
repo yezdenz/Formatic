@@ -28,7 +28,9 @@ export async function readCompletedHistory(origin: string, courseId: string, qui
   ]);
   const quiz = quizData as { assignment_id?: number | string | null };
   const own = ownData as { quiz_submissions?: { user_id?: number | string; finished_at?: string | null }[] };
-  const completed = own.quiz_submissions?.find(submission => !!submission.finished_at);
+  const attempts = own.quiz_submissions || [];
+  if (attempts.some(submission => !submission.finished_at)) return [];
+  const completed = attempts.find(submission => !!submission.finished_at);
   if (!quiz.assignment_id || !completed?.user_id) return [];
   const url = `${origin}/api/v1/courses/${courseId}/assignments/${quiz.assignment_id}/submissions/${completed.user_id}?include%5B%5D=submission_history`;
   const submission = await readJson(url, request) as { submission_history?: CompletedSubmission[] };
