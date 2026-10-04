@@ -2,6 +2,7 @@ export interface ScrapedChoice {
   text: string;
   isCorrect: boolean | null;
   isSelected: boolean;
+  canvasAnswerId?: string;
 }
 
 export interface ScrapedQuestion {
