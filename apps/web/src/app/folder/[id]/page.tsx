@@ -6,6 +6,7 @@ import { Plus } from 'lucide-react';
 import { RepositoryList } from '@/components/RepositoryList';
 import { canModerate } from '@/lib/permissions';
 import { AnswerResolver } from '@/components/AnswerResolver';
+import { canSetTeamAnswer } from '@/lib/answerResolution';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,10 +25,7 @@ export default async function FolderPage({ params }: { params: Promise<{ id: str
       {questions.length ? <div className="repository-question-list">{questions.map((question, index) => {
         const knownAnswer = question.choices.some(choice => choice.isCorrect === true);
         const userAnswer = question.answerSource === 'USER';
-        const canResolve = !!user?.teamId && folder?.teamId === user.teamId && !question.hasConflict &&
-          (userAnswer || (!question.isVerified && !knownAnswer)) &&
-          ['MULTIPLE_CHOICE', 'MULTIPLE_ANSWERS', 'TRUE_FALSE'].includes(question.questionType) &&
-          question.choices.some(choice => userAnswer || choice.isCorrect !== false);
+        const canResolve = !!user?.teamId && folder?.teamId === user.teamId && canSetTeamAnswer(question);
         return <article className="repository-question-card" key={question.id}>
           <div className="repository-question-top"><span className="repository-question-index">{String(index + 1).padStart(2, '0')}</span><span className={`repository-answer-status ${knownAnswer && !question.hasConflict ? 'known' : ''}`}>{question.hasConflict ? 'Needs answer review' : userAnswer ? 'Team answer' : knownAnswer ? 'Answer saved' : 'Answer not revealed'}</span></div>
           <h3>{question.plainText}</h3>
