@@ -91,3 +91,18 @@ test('does not request assignment history while the current quiz submission is u
   assert.deepEqual(await readCompletedHistory('https://canvas.example.edu', '2', '3', mock), []);
   assert.equal(requested.length, 2);
 });
+
+test('does not read prior history when an older attempt is finished but a new attempt is in progress', async () => {
+  const requested: string[] = [];
+  const mock = (async (url: string) => {
+    requested.push(url);
+    return { ok: true, json: async () => url.endsWith('/submission')
+      ? { quiz_submissions: [
+        { user_id: 7, finished_at: '2026-10-01T01:00:00Z' },
+        { user_id: 7, finished_at: null }
+      ] }
+      : { assignment_id: 33 } } as Response;
+  }) as typeof fetch;
+  assert.deepEqual(await readCompletedHistory('https://canvas.example.edu', '2', '3', mock), []);
+  assert.equal(requested.length, 2);
+});
