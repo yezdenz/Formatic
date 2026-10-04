@@ -99,3 +99,17 @@ test('captures alternative answer rows and explicit incorrect markers', () => {
   assert.deepEqual(questions[0].choices.map(choice => choice.text), ['True', 'False']);
   assert.deepEqual(questions[0].choices.map(choice => choice.isCorrect), [false, true]);
 });
+
+test('prefers the visible prompt over a generic Question 5 heading', () => {
+  const questions = parse(`
+    <div id="questions"><div class="display_question" id="question_105">
+      <div class="header"><span class="question_name">Question 5</span></div>
+      <div class="text"><div class="original_question_text" style="display:none"><textarea>Hidden source</textarea></div>
+      <div class="question_text user_content">Which command uploads commits to a remote repository?</div></div>
+      <div class="answers"><div class="answer" id="answer_1"><div class="answer_text">git pull</div></div>
+      <div class="answer" id="answer_2"><div class="answer_text">git init</div></div>
+      <div class="answer" id="answer_3"><div class="answer_text">git push</div></div></div>
+    </div></div>`, true);
+  assert.equal(questions[0].questionText, 'Which command uploads commits to a remote repository?');
+  assert.deepEqual(questions[0].choices.map(choice => choice.text), ['git pull', 'git init', 'git push']);
+});
