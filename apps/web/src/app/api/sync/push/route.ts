@@ -5,6 +5,7 @@ import { currentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { acceptsMutation, apiJson, preflight } from '@/lib/cors';
 import { normalizeText, questionHash, scopedQuestionHash, stripHtml } from '@/lib/deduplicate';
+import { shouldPreferIncomingAnswer, userAnswerDisproved } from '@/lib/answerPriority';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
           questionType: incoming.questionType || 'MULTIPLE_CHOICE',
           explanation: incoming.explanation,
           isVerified: incoming.choices.some(item => item.isCorrect === true),
+          answerSource: incoming.choices.some(item => item.isCorrect === true) ? 'CANVAS' : null,
           choices: { create: incoming.choices.map(item => ({ text: item.text, isCorrect: item.isCorrect ?? null })) }
         } });
         items.push({ questionId: created.id, wasNew: true });
@@ -62,12 +64,22 @@ export async function POST(request: NextRequest) {
       let isVerified = existing.isVerified;
       const incomingCorrect = incoming.choices.filter(item => item.isCorrect === true).map(item => normalizeText(item.text));
       const knownCorrect = existing.choices.filter(item => item.isCorrect === true).map(item => normalizeText(item.text));
-      if (existing.questionType !== 'MULTIPLE_ANSWERS' && incomingCorrect.length && knownCorrect.length && incomingCorrect.some(text => !knownCorrect.includes(text))) hasConflict = true;
+      const promoteIncoming = shouldPreferIncomingAnswer(existing, {
+        choices: incoming.choices, answerSource: 'CANVAS', hasConflict: false
+      });
+      const disprovedUserAnswer = !promoteIncoming && userAnswerDisproved(existing, incoming.choices);
+      if (!promoteIncoming && incomingCorrect.length && knownCorrect.length &&
+          (incomingCorrect.length !== knownCorrect.length || incomingCorrect.some(text => !knownCorrect.includes(text)))) hasConflict = true;
       for (const item of incoming.choices) {
         const found = existing.choices.find(candidate => normalizeText(candidate.text) === normalizeText(item.text));
         if (!found) {
           await tx.choice.create({ data: { questionId: existing.id, text: item.text, isCorrect: item.isCorrect ?? null } });
           if (item.isCorrect === true) isVerified = true;
+        } else if (promoteIncoming) {
+          const nextStatus = item.isCorrect ?? (existing.answerSource === 'USER' ? null : found.isCorrect);
+          if (found.isCorrect !== nextStatus) await tx.choice.update({ where: { id: found.id }, data: { isCorrect: nextStatus } });
+        } else if (disprovedUserAnswer && item.isCorrect === false && found.isCorrect === true) {
+          await tx.choice.update({ where: { id: found.id }, data: { isCorrect: false } });
         } else if (item.isCorrect != null && found.isCorrect == null) {
           await tx.choice.update({ where: { id: found.id }, data: { isCorrect: item.isCorrect } });
           if (item.isCorrect) isVerified = true;
@@ -75,9 +87,23 @@ export async function POST(request: NextRequest) {
           hasConflict = true;
         }
       }
+      if (promoteIncoming && existing.answerSource === 'USER') {
+        const importedTexts = new Set(incoming.choices.map(item => normalizeText(item.text)));
+        for (const choice of existing.choices) {
+          if (!importedTexts.has(normalizeText(choice.text)) && choice.isCorrect != null) {
+            await tx.choice.update({ where: { id: choice.id }, data: { isCorrect: null } });
+          }
+        }
+      }
       await tx.question.update({ where: { id: existing.id }, data: {
-        timesEncountered: { increment: 1 }, isVerified, hasConflict,
-        explanation: existing.explanation || incoming.explanation
+        timesEncountered: { increment: 1 }, isVerified: disprovedUserAnswer ? false : (promoteIncoming || isVerified), hasConflict,
+        ...(disprovedUserAnswer ? { answerSource: null } : {}),
+        ...(promoteIncoming ? {
+          text: incoming.questionText, plainText: stripHtml(incoming.questionText),
+          questionType: incoming.questionType || existing.questionType,
+          answerSource: 'CANVAS' as const
+        } : {}),
+        explanation: promoteIncoming ? (incoming.explanation || existing.explanation) : (existing.explanation || incoming.explanation)
       } });
       items.push({ questionId: existing.id, wasNew: false });
       mergedItems++;
