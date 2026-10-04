@@ -57,7 +57,7 @@ test('does not classify choices from an incorrect multiple-answer attempt', () =
   assert.deepEqual(merged[0].choices.map(choice => choice.isCorrect), [null, null, null]);
 });
 
-test('requests only current-user completed submission history on a review page', async () => {
+test('requests current-user completed submission history', async () => {
   const requested: string[] = [];
   const mock = (async (url: string) => {
     requested.push(url);
@@ -80,29 +80,37 @@ test('requests only current-user completed submission history on a review page',
   ]);
 });
 
-test('does not request assignment history while the current quiz submission is unfinished', async () => {
+test('reads earlier completed history while the current quiz attempt is unfinished', async () => {
   const requested: string[] = [];
   const mock = (async (url: string) => {
     requested.push(url);
-    return { ok: true, json: async () => url.endsWith('/submission')
+    const body = url.endsWith('/submission')
       ? { quiz_submissions: [{ user_id: 7, finished_at: null }] }
-      : { assignment_id: 33 } } as Response;
+      : url.includes('/assignments/')
+        ? { submission_history: [
+          { submitted_at: '2026-10-01T01:00:00Z', submission_data: [{ question_id: 5, correct: true, text: '12' }] },
+          { submitted_at: null, submission_data: [{ question_id: 5, correct: false, text: '12' }] }
+        ] }
+        : { assignment_id: 33 };
+    return { ok: true, json: async () => body } as Response;
   }) as typeof fetch;
-  assert.deepEqual(await readCompletedHistory('https://canvas.example.edu', '2', '3', mock), []);
-  assert.equal(requested.length, 2);
+  const history = await readCompletedHistory('https://canvas.example.edu', '2', '3', mock);
+  assert.equal(history.length, 1);
+  assert.deepEqual(mergeCompletedHistory([question('5')], history)[0].choices.map(choice => choice.isCorrect), [null, null, true]);
+  assert.equal(requested.length, 3);
 });
 
-test('does not read prior history when an older attempt is finished but a new attempt is in progress', async () => {
+test('does not infer an answer from an unfinished first attempt', async () => {
   const requested: string[] = [];
   const mock = (async (url: string) => {
     requested.push(url);
-    return { ok: true, json: async () => url.endsWith('/submission')
-      ? { quiz_submissions: [
-        { user_id: 7, finished_at: '2026-10-01T01:00:00Z' },
-        { user_id: 7, finished_at: null }
-      ] }
-      : { assignment_id: 33 } } as Response;
+    const body = url.endsWith('/submission')
+      ? { quiz_submissions: [{ user_id: 7, finished_at: null }] }
+      : url.includes('/assignments/')
+        ? { submission_history: [{ submitted_at: null, submission_data: [{ question_id: 5, correct: true, text: '12' }] }] }
+        : { assignment_id: 33 };
+    return { ok: true, json: async () => body } as Response;
   }) as typeof fetch;
   assert.deepEqual(await readCompletedHistory('https://canvas.example.edu', '2', '3', mock), []);
-  assert.equal(requested.length, 2);
+  assert.equal(requested.length, 3);
 });
