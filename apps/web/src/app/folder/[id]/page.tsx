@@ -23,13 +23,15 @@ export default async function FolderPage({ params }: { params: Promise<{ id: str
     <section className="panel repository-questions"><div className="repository-questions-heading"><div><p className="eyebrow">QUESTION BANK</p><h2>Questions <span>{questions.length}</span></h2></div></div>
       {questions.length ? <div className="repository-question-list">{questions.map((question, index) => {
         const knownAnswer = question.choices.some(choice => choice.isCorrect === true);
-        const canResolve = !!user?.teamId && folder?.teamId === user.teamId && !question.isVerified && !question.hasConflict && !knownAnswer &&
+        const userAnswer = question.answerSource === 'USER';
+        const canResolve = !!user?.teamId && folder?.teamId === user.teamId && !question.hasConflict &&
+          (userAnswer || (!question.isVerified && !knownAnswer)) &&
           ['MULTIPLE_CHOICE', 'MULTIPLE_ANSWERS', 'TRUE_FALSE'].includes(question.questionType) &&
-          question.choices.some(choice => choice.isCorrect !== false);
+          question.choices.some(choice => userAnswer || choice.isCorrect !== false);
         return <article className="repository-question-card" key={question.id}>
-          <div className="repository-question-top"><span className="repository-question-index">{String(index + 1).padStart(2, '0')}</span><span className={`repository-answer-status ${knownAnswer && !question.hasConflict ? 'known' : ''}`}>{question.hasConflict ? 'Needs answer review' : knownAnswer ? 'Answer saved' : 'Answer not revealed'}</span></div>
+          <div className="repository-question-top"><span className="repository-question-index">{String(index + 1).padStart(2, '0')}</span><span className={`repository-answer-status ${knownAnswer && !question.hasConflict ? 'known' : ''}`}>{question.hasConflict ? 'Needs answer review' : userAnswer ? 'Team answer' : knownAnswer ? 'Answer saved' : 'Answer not revealed'}</span></div>
           <h3>{question.plainText}</h3>
-          {canResolve ? <AnswerResolver questionId={question.id} multiple={question.questionType === 'MULTIPLE_ANSWERS'} choices={question.choices.map(choice => ({ id: choice.id, text: choice.text, isCorrect: choice.isCorrect }))} /> :
+          {canResolve ? <AnswerResolver key={`${question.answerSource ?? 'NONE'}:${question.choices.filter(choice => choice.isCorrect === true).map(choice => choice.id).join(',')}`} questionId={question.id} multiple={question.questionType === 'MULTIPLE_ANSWERS'} editable={userAnswer} choices={question.choices.map(choice => ({ id: choice.id, text: choice.text, isCorrect: choice.isCorrect }))} /> :
             question.choices.length ? <ol className="repository-choice-list">{question.choices.map((choice, choiceIndex) => <li className={choice.isCorrect === true ? 'choice-correct' : choice.isCorrect === false ? 'choice-incorrect' : ''} key={choice.id}><span className="choice-letter">{String.fromCharCode(65 + choiceIndex)}</span><span className="choice-text">{choice.text}</span>{choice.isCorrect === true && <strong>Correct</strong>}{choice.isCorrect === false && <small>Wrong</small>}</li>)}</ol> : <p className="muted">No answer choices were captured for this question.</p>}
           {question.explanation && <p className="repository-explanation"><strong>Feedback</strong>{question.explanation}</p>}
         </article>;
