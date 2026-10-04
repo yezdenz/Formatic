@@ -18,8 +18,8 @@ async function readJson(url: string, request: typeof fetch): Promise<unknown> {
   return response.json();
 }
 
-// Canvas Quiz Loader reads the user's own completed submission_history. Keep
-// this request on review pages only; never request the quiz question bank.
+// Canvas Quiz Loader reads the user's own submission_history on retake pages.
+// Read only completed attempts from that history, never the quiz question bank.
 export async function readCompletedHistory(origin: string, courseId: string, quizId: string, request: typeof fetch = fetch): Promise<CompletedSubmission[]> {
   const prefix = `${origin}/api/v1/courses/${courseId}/quizzes/${quizId}`;
   const [quizData, ownData] = await Promise.all([
@@ -28,11 +28,11 @@ export async function readCompletedHistory(origin: string, courseId: string, qui
   ]);
   const quiz = quizData as { assignment_id?: number | string | null };
   const own = ownData as { quiz_submissions?: { user_id?: number | string; finished_at?: string | null }[] };
-  const attempts = own.quiz_submissions || [];
-  if (attempts.some(submission => !submission.finished_at)) return [];
-  const completed = attempts.find(submission => !!submission.finished_at);
-  if (!quiz.assignment_id || !completed?.user_id) return [];
-  const url = `${origin}/api/v1/courses/${courseId}/assignments/${quiz.assignment_id}/submissions/${completed.user_id}?include%5B%5D=submission_history`;
+  // Canvas may return only the active attempt during a retake. Its user ID
+  // still identifies the student's earlier completed assignment history.
+  const ownAttempt = own.quiz_submissions?.find(submission => submission.user_id);
+  if (!quiz.assignment_id || !ownAttempt?.user_id) return [];
+  const url = `${origin}/api/v1/courses/${courseId}/assignments/${quiz.assignment_id}/submissions/${ownAttempt.user_id}?include%5B%5D=submission_history`;
   const submission = await readJson(url, request) as { submission_history?: CompletedSubmission[] };
   return (submission.submission_history || []).filter(item =>
     !!item.submitted_at && Array.isArray(item.submission_data)
