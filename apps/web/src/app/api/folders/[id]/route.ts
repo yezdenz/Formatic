@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { currentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { acceptsMutation, apiJson, preflight } from '@/lib/cors';
+import { acceptsMutation, apiJson, isAllowedExtensionOrigin, preflight } from '@/lib/cors';
 import { canModerate } from '@/lib/permissions';
 
 export const runtime = 'nodejs';
@@ -39,7 +39,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const origin = request.headers.get('origin');
-  if (origin && origin !== request.nextUrl.origin && origin !== `chrome-extension://${process.env.EXTENSION_ID}`) return apiJson(request, { error: 'Origin denied.' }, 403);
+  if (origin && origin !== request.nextUrl.origin && !isAllowedExtensionOrigin(origin)) return apiJson(request, { error: 'Origin denied.' }, 403);
   const { id } = await params;
   if (!await allowed(id)) return apiJson(request, { error: 'Folder not found or access denied.' }, 404);
   await prisma.folder.delete({ where: { id } });
