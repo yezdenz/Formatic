@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export function isAllowedExtensionOrigin(origin: string | null, configuredIds = process.env.EXTENSION_ID): boolean {
+  if (!origin || !configuredIds) return false;
+  return configuredIds.split(',').some(value => {
+    const id = value.trim();
+    return /^[a-p]{32}$/.test(id) && origin === `chrome-extension://${id}`;
+  });
+}
+
 export function corsHeaders(request: NextRequest): HeadersInit {
   const origin = request.headers.get('origin');
-  const extensionId = process.env.EXTENSION_ID;
-  if (!origin || !extensionId || origin !== `chrome-extension://${extensionId}`) return {};
+  if (!origin || !isAllowedExtensionOrigin(origin)) return {};
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Credentials': 'true',
@@ -26,7 +33,6 @@ export function preflight(request: NextRequest) {
 export function acceptsMutation(request: NextRequest): boolean {
   const origin = request.headers.get('origin');
   const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).origin : null;
-  const extensionOrigin = process.env.EXTENSION_ID ? `chrome-extension://${process.env.EXTENSION_ID}` : null;
-  return (!origin || origin === request.nextUrl.origin || origin === configuredOrigin || origin === extensionOrigin) &&
+  return (!origin || origin === request.nextUrl.origin || origin === configuredOrigin || isAllowedExtensionOrigin(origin)) &&
     request.headers.get('content-type')?.startsWith('application/json') === true;
 }
