@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { currentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { acceptsMutation, apiJson, preflight } from '@/lib/cors';
+import { acceptsMutation, apiJson, isAllowedExtensionOrigin, preflight } from '@/lib/cors';
 import { canModerate } from '@/lib/permissions';
 import { scopedQuestionHash, stripHtml } from '@/lib/deduplicate';
 
@@ -64,7 +64,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const origin = request.headers.get('origin');
-  if (origin && origin !== request.nextUrl.origin && origin !== `chrome-extension://${process.env.EXTENSION_ID}`) return apiJson(request, { error: 'Origin denied.' }, 403);
+  if (origin && origin !== request.nextUrl.origin && !isAllowedExtensionOrigin(origin)) return apiJson(request, { error: 'Origin denied.' }, 403);
   const user = await currentUser();
   if (!user || !canModerate(user)) return apiJson(request, { error: 'Moderator access required.' }, 403);
   const { id } = await params;
