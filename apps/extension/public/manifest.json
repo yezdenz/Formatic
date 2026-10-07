@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Formatic - Canvas Formative Saver",
   "version": "0.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqXXSTwmqmnqQQ4CbvhrM0vy60zVAkK/OWKl9GIbEVP48h1dNf9WYrBg0m0yWtXbB4l+fFtE2moE/teRPNc9B50fuUgy7HCYx6rbQViKcSq7+6vZxgJPY9O0k3122IUgjUbdC64SvG0u+y69AYjBT3BnW2cU6nBIZ0CP2HEfXVGUIfn27HQQiFXSIjJ0ccUUicNgsqoYNxOYx+TGPdsqvXin6zQUA4PsmKJvQ5XiAhs9OLaHYwd0NhaSmudZ5CBohSb7xmMAvRpXXX0JKBx3H59dRCVD0BhDCyaDNK/eQlT7vv52VRRFGzEVlgbbCUHnPRPBKpnEdxamC41TCBhLl6wIDAQAB",
   "description": "Stage Canvas quiz questions locally for review and study.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["http://localhost:3000/*", "https://*/*"],
