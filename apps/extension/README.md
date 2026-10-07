@@ -11,3 +11,7 @@ Only an explicitly correct completed attempt can identify a correct choice from 
 The [Canvas Quiz Loader Firefox port](https://github.com/gnhen/canvasQuizLoader) provided a comparison for using prior submissions. Its source map at `quiz-loader/index.js.map` shows the `submissions.ts` and `answers.ts` modules that read `submission_history` and classify `correct: true` attempts. Formatic independently uses the same documented Canvas response fields for passive capture. See Canvas's [Quiz Submissions API](https://canvas.instructure.com/doc/api/quiz_submissions.html) and [Submissions API](https://canvas.instructure.com/doc/api/submissions.html).
 
 The popup stages questions locally until the user chooses a course or folder and pushes them to Formatic. If a Canvas page exposes only a generic heading such as “Question 5” without its prompt, the popup blocks that quiz from being pushed; reopen the Canvas page to capture the full prompt.
+
+## Install the GitHub release
+
+Download the extension ZIP from the [Formatic releases](https://github.com/yezdenz/Formatic/releases), extract it, open `chrome://extensions`, enable Developer mode, and choose **Load unpacked**. Select the extracted folder containing `manifest.json`, then sign in to the [Formatic website](https://formatic-iota.vercel.app) and connect the extension. The release manifest gives extracted copies the same extension ID. GitHub does not install or automatically update the extension; download and load a newer release when one is available.
