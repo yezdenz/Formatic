@@ -15,7 +15,7 @@ This repository contains a Next.js website in `apps/web` and a Chrome extension 
    | `JWT_SECRET` | A random secret with at least 32 characters. |
    | `ADMIN_SECRET_KEY` | A private admin passcode with at least 16 characters. |
    | `NEXT_PUBLIC_APP_URL` | The production HTTPS site origin, such as `https://formatic.vercel.app`. |
-   | `EXTENSION_ID` | The Chrome extension ID once it has been loaded or published. It is needed for extension requests, not browser sign-in. |
+   | `EXTENSION_ID` | One Chrome extension ID, or comma-separated IDs during an extension transition. It is needed for extension requests, not browser sign-in. |
 
    Copy the URL values from the database provider. Keep credentials in Vercel environment variables; never commit them or paste them into an issue. `apps/web/.env.example` contains placeholders only. The app expects both database URLs because the Prisma schema uses one for runtime queries and the other for migrations.
 
@@ -26,7 +26,7 @@ If you enable **Preview** deployments, connect them to a **separate database or 
 
 ## Chrome extension
 
-Build `apps/extension` separately with `npm ci && npm run build`, then load `apps/extension/dist` in Chrome or publish it through the Chrome Web Store. Put the deployed HTTPS origin in the extension popup's Hub URL. Set `EXTENSION_ID` in Vercel to the extension ID and redeploy so credentialed extension API requests are allowed.
+Build `apps/extension` separately with `npm ci && npm run build`, then load `apps/extension/dist` in Chrome or publish it through the Chrome Web Store. GitHub releases may contain a ZIP of the **contents** of `dist`; extract it and load the extracted folder with **Load unpacked**. The public manifest key keeps the GitHub build's extension ID stable across extraction paths. Put the deployed HTTPS origin in the extension popup's Hub URL. Set `EXTENSION_ID` in Vercel to the release extension ID and redeploy so credentialed extension API requests are allowed. During a transition, include both the previous and release IDs separated by a comma.
 
 ## Local verification
 
