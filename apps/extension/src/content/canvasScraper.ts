@@ -43,6 +43,8 @@ function attach(container: Element, identity: NonNullable<ReturnType<typeof quiz
     }, 250);
   };
   observeQuiz(container, queueCapture);
+  container.addEventListener('change', queueCapture, true);
+  container.addEventListener('input', queueCapture, true);
   if (identity.quizNumber) {
     void readCompletedHistory(location.origin, identity.courseId, identity.quizNumber)
       .then(submissions => {
