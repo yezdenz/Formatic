@@ -15,6 +15,7 @@ const input = z.object({
   folderId: z.string().uuid().optional(),
   explanation: z.string().max(30000).nullable().optional(),
   choices: z.array(z.object({ id: z.string().uuid(), text: z.string().trim().min(1).max(5000).optional(), isCorrect: z.boolean().nullable() })).optional(),
+  blanks: z.array(z.object({ id: z.string().uuid(), correctAnswers: z.array(z.string().trim().min(1).max(5000)).max(20) })).optional(),
   hasConflict: z.boolean().optional()
 });
 
@@ -25,9 +26,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { id } = await params;
   const parsed = input.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiJson(request, { error: 'Invalid question update.' }, 400);
-  const existing = await prisma.question.findUnique({ where: { id }, include: { choices: true, folder: true } });
+  const existing = await prisma.question.findUnique({ where: { id }, include: { choices: true, blanks: true, folder: true } });
   if (!existing || existing.folder.teamId !== user.teamId) return apiJson(request, { error: 'Question not found.' }, 404);
   if (parsed.data.choices?.some(choice => !existing.choices.some(item => item.id === choice.id))) return apiJson(request, { error: 'Choice does not belong to question.' }, 400);
+  if (parsed.data.blanks?.some(blank => !existing.blanks.some(item => item.id === blank.id))) return apiJson(request, { error: 'Blank does not belong to question.' }, 400);
   if (parsed.data.folderId && !await prisma.folder.findFirst({ where: { id: parsed.data.folderId, teamId: user.teamId } })) return apiJson(request, { error: 'Destination folder not found.' }, 404);
   const answerChanged = !!parsed.data.choices?.some(choice => choice.isCorrect !== existing.choices.find(item => item.id === choice.id)?.isCorrect) ||
     (existing.hasConflict && parsed.data.hasConflict === false);
@@ -42,14 +44,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const updated = await prisma.$transaction(async tx => {
       for (const choice of parsed.data.choices || []) await tx.choice.update({ where: { id: choice.id }, data: { text: choice.text, isCorrect: choice.isCorrect } });
+      for (const blank of parsed.data.blanks || []) {
+        const prior = existing.blanks.find(item => item.id === blank.id)!;
+        if (JSON.stringify(prior.correctAnswers) !== JSON.stringify(blank.correctAnswers)) {
+          await tx.questionBlank.update({ where: { id: blank.id }, data: {
+            correctAnswers: blank.correctAnswers, answerSource: blank.correctAnswers.length ? 'MODERATOR' : null
+          } });
+        }
+      }
       const choices = await tx.choice.findMany({ where: { questionId: id } });
+      const blanks = await tx.questionBlank.findMany({ where: { questionId: id } });
       const question = await tx.question.update({ where: { id }, data: {
         ...(parsed.data.questionText ? { text: parsed.data.questionText, plainText: stripHtml(parsed.data.questionText), hash: nextHash } : {}),
         ...(parsed.data.folderId ? { folderId: parsed.data.folderId } : {}),
         explanation: parsed.data.explanation === undefined ? existing.explanation : parsed.data.explanation,
         hasConflict: parsed.data.hasConflict ?? existing.hasConflict,
-        isVerified: choices.some(choice => choice.isCorrect === true),
-        answerSource: answerChanged ? (choices.some(choice => choice.isCorrect === true) ? 'MODERATOR' : null) : existing.answerSource
+        isVerified: blanks.length ? blanks.every(blank => blank.correctAnswers.length > 0) : choices.some(choice => choice.isCorrect === true),
+        answerSource: blanks.length ? blanks.some(blank => blank.answerSource === 'MODERATOR') ? 'MODERATOR' : existing.answerSource : answerChanged ? (choices.some(choice => choice.isCorrect === true) ? 'MODERATOR' : null) : existing.answerSource
       } });
       if (nextHash !== existing.hash) await tx.questionAlias.upsert({ where: { hash: existing.hash }, update: { questionId: id }, create: { hash: existing.hash, questionId: id } });
       await tx.adminLog.create({ data: { adminId: user.id, action: 'UPDATE_QUESTION', targetId: id, details: JSON.stringify({ before: existing, changes: parsed.data }) } });
