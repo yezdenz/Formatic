@@ -113,3 +113,39 @@ test('prefers the visible prompt over a generic Question 5 heading', () => {
   assert.equal(questions[0].questionText, 'Which command uploads commits to a remote repository?');
   assert.deepEqual(questions[0].choices.map(choice => choice.text), ['git pull', 'git init', 'git push']);
 });
+
+test('captures one Classic fill-in answer without treating it as a choice', () => {
+  const questions = parse(`<div id="questions"><div class="quiz_question short_answer_question" id="question_200">
+    <div class="question_text">Name the protocol used for web pages.</div>
+    <div class="answers"><input type="text" name="question_200" value="HTTP"></div>
+  </div></div>`, true);
+  assert.equal(questions[0].questionType, 'SHORT_ANSWER');
+  assert.deepEqual(questions[0].blanks, [{ key: 'answer', label: 'Answer', submittedText: 'HTTP', correctAnswers: [] }]);
+  assert.deepEqual(questions[0].choices, []);
+});
+
+test('preserves each named blank and merges submitted values with confirmed answers', () => {
+  const draft = parse(`<div id="questions"><div class="quiz_question fill_in_multiple_blanks_question" id="question_201">
+    <div class="question_text">The sky is <input type="text" name="question_201_color"> and grass is <input type="text" name="question_201_plant">.</div>
+  </div></div>`, false);
+  const review = parse(`<div id="questions"><div class="display_question fill_in_multiple_blanks_question" id="question_201">
+    <div class="question_text">The sky is <input type="text" name="question_201_color" value="blue"> and grass is <input type="text" name="question_201_plant" value="green">.</div>
+  </div></div>`, true);
+  assert.equal(draft[0].questionType, 'FILL_IN_MULTIPLE_BLANKS');
+  assert.match(draft[0].questionText, /\[blank\]/);
+  assert.deepEqual(review[0].blanks?.map(blank => [blank.key, blank.submittedText]), [['color', 'blue'], ['plant', 'green']]);
+  const merged = mergeQuestions(draft, review, true);
+  assert.deepEqual(merged[0].blanks?.map(blank => blank.submittedText), ['blue', 'green']);
+  assert.deepEqual(merged[0].blanks?.map(blank => blank.correctAnswers), [[], []]);
+});
+
+test('reads only visibly revealed text answers on a Classic review page', () => {
+  const questions = parse(`<div id="questions"><div class="display_question fill_in_multiple_blanks_question" id="question_202">
+    <div class="question_text">A <input type="text" name="question_202_first" value="one"> and B <input type="text" name="question_202_second" value="two"></div>
+    <div class="answers"><div class="answer answer_for_first correct_answer"><div class="answer_text">one</div></div>
+      <div class="answer answer_for_second correct_answer"><div class="answer_text">two</div></div>
+      <div class="answer answer_for_second correct_answer" style="display:none"><div class="answer_text">secret</div></div></div>
+  </div></div>`, true);
+  assert.deepEqual(questions[0].blanks?.map(blank => blank.correctAnswers), [['one'], ['two']]);
+  assert.deepEqual(questions[0].choices, []);
+});
