@@ -1,4 +1,4 @@
-import type { ScrapedChoice, ScrapedQuestion } from '../types/canvas';
+import type { ScrapedBlank, ScrapedChoice, ScrapedQuestion } from '../types/canvas';
 
 const questionSelector = '.quiz_question, .display_question, [id^="question_"]';
 const choiceSelector = '.answers .answer, .answers .answer_row, .answers .answer_label, .answer_row, .answer[id^="answer_"]';
@@ -37,6 +37,35 @@ export function cleanText(element: Element | null): string {
   let text = (clone.textContent || '').replace(/\u00a0/g, ' ').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
   codeBlocks.forEach((code, index) => { text = text.replace(`FORMATIC_CODE_BLOCK_${index}_END`, `\n${code}\n`); });
   return text.trim();
+}
+
+function promptText(element: Element | null): string {
+  if (!element) return '';
+  const clone = element.cloneNode(true) as Element;
+  clone.querySelectorAll('input[type="text"]').forEach(input => input.replaceWith(' [blank] '));
+  return cleanText(clone);
+}
+
+function parseBlanks(element: Element, questionId: string, multiple: boolean, review: boolean): ScrapedBlank[] {
+  const inputs = [...element.querySelectorAll('input[type="text"], input:not([type]).question_input')]
+    .filter(input => exposedWithin(input, element) && !input.closest('.original_question_text, .hidden, .answer[id^="answer_"]')) as HTMLInputElement[];
+  const blanks: ScrapedBlank[] = (multiple ? inputs : inputs.slice(0, 1)).map((input, index) => {
+    const name = input.name || '';
+    const key = multiple ? name.startsWith(`question_${questionId}_`)
+      ? name.slice(`question_${questionId}_`.length) : `blank_${index + 1}` : 'answer';
+    const label = input.getAttribute('data-blank-id') || input.getAttribute('aria-label') ||
+      (multiple ? key : 'Answer');
+    return { key, label, submittedText: input.value.trim() || undefined, correctAnswers: [] };
+  });
+  if (review) {
+    const revealed = [...element.querySelectorAll('.answer.correct_answer')].filter(answer => exposedWithin(answer, element));
+    for (const blank of blanks) {
+      const matches = revealed.filter(answer => !multiple || answer.classList.contains(`answer_for_${blank.key}`));
+      blank.correctAnswers = [...new Set(matches.map(answer => cleanText(answer.querySelector('.answer_text')) ||
+        (answer.querySelector('input[type="text"]') as HTMLInputElement | null)?.value.trim() || '').filter(Boolean))];
+    }
+  }
+  return blanks;
 }
 
 function choiceText(element: Element): string {
@@ -83,7 +112,7 @@ export function parseQuestions(root: Element, review: boolean, page: Document): 
   const courseTitle = cleanText(page.querySelector('.course-title, #breadcrumbs .course')) || undefined;
   const quizTitle = cleanText(page.querySelector('.quiz_title, h1.page-title, h1')) || undefined;
   return questionElements.flatMap((element, index) => {
-    const questionText = cleanText(element.querySelector('.question_text')) ||
+    const questionText = promptText(element.querySelector('.question_text')) ||
       cleanText(element.querySelector('.question_holder .text')) ||
       cleanText(element.querySelector('.question_name'));
     if (!questionText || /^Question\s*#?\d+[:.]?\s*$/i.test(questionText)) return [];
@@ -94,17 +123,30 @@ export function parseQuestions(root: Element, review: boolean, page: Document): 
       .filter((choice): choice is ScrapedChoice => choice !== null);
     const id = element.getAttribute('data-question-id') || element.id.match(/question_(\d+)/)?.[1] || `unknown_${index}`;
     const type = element.getAttribute('data-question-type') || element.className;
-    const questionType = /multiple_answers/.test(type) || !!element.querySelector('input[type="checkbox"]') ? 'MULTIPLE_ANSWERS' :
+    const multipleBlanks = /fill_in_multiple_blanks/.test(type);
+    const questionType = multipleBlanks ? 'FILL_IN_MULTIPLE_BLANKS' :
+      /short_answer/.test(type) ? 'SHORT_ANSWER' :
+      /multiple_answers/.test(type) || !!element.querySelector('input[type="checkbox"]') ? 'MULTIPLE_ANSWERS' :
       /true_false/.test(type) ? 'TRUE_FALSE' :
       !!element.querySelector('textarea') ? 'ESSAY' :
       !!element.querySelector('input[type="text"]') ? 'SHORT_ANSWER' : 'MULTIPLE_CHOICE';
+    const blanks = questionType === 'SHORT_ANSWER' || questionType === 'FILL_IN_MULTIPLE_BLANKS'
+      ? parseBlanks(element, id, questionType === 'FILL_IN_MULTIPLE_BLANKS', review) : [];
+    if (questionType === 'SHORT_ANSWER' && blanks.length === 0) blanks.push({ key: 'answer', label: 'Answer', correctAnswers: [] });
+    if (questionType === 'SHORT_ANSWER' && review && blanks[0].correctAnswers.length === 0) {
+      blanks[0].correctAnswers = [...new Set([...element.querySelectorAll('.answer.correct_answer')]
+        .filter(answer => exposedWithin(answer, element))
+        .map(answer => cleanText(answer.querySelector('.answer_text')) ||
+          (answer.querySelector('input[type="text"]') as HTMLInputElement | null)?.value.trim() || '').filter(Boolean))];
+    }
     return [{
       canvasQuestionId: id,
       questionType,
       courseTitle,
       quizTitle,
       questionText,
-      choices,
+      choices: questionType === 'SHORT_ANSWER' || questionType === 'FILL_IN_MULTIPLE_BLANKS' ? [] : choices,
+      blanks,
       explanation: review ? cleanText(element.querySelector(feedbackSelector)) || undefined : undefined,
       isPostSubmission: review,
       timestamp: Date.now()
@@ -119,6 +161,14 @@ export function mergeQuestions(previous: ScrapedQuestion[], incoming: ScrapedQue
     if (!old) { merged.set(question.canvasQuestionId, question); continue; }
     const key = (text: string) => text.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
     const choices = new Map(old.choices.map(choice => [key(choice.text), choice]));
+    const blanks = new Map((old.blanks || []).map(blank => [blank.key, blank]));
+    for (const blank of question.blanks || []) {
+      const prior = blanks.get(blank.key);
+      blanks.set(blank.key, { ...prior, ...blank,
+        submittedText: blank.submittedText || prior?.submittedText,
+        correctAnswers: [...new Set([...(prior?.correctAnswers || []), ...blank.correctAnswers])]
+      });
+    }
     const reviewWithoutSelection = review && !question.choices.some(choice => choice.isSelected);
     for (const choice of question.choices) {
       const prior = choices.get(key(choice.text));
@@ -132,7 +182,8 @@ export function mergeQuestions(previous: ScrapedQuestion[], incoming: ScrapedQue
     merged.set(question.canvasQuestionId, {
       ...old, ...question,
       explanation: question.explanation || old.explanation,
-      choices: [...choices.values()]
+      choices: [...choices.values()],
+      blanks: [...blanks.values()]
     });
   }
   return [...merged.values()];
