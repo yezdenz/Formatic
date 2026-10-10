@@ -12,10 +12,16 @@ export const dynamic = 'force-dynamic';
 export const OPTIONS = preflight;
 
 const choice = z.object({ text: z.string().trim().min(1).max(5000), isCorrect: z.boolean().nullable().optional(), isSelected: z.boolean().optional() });
+const blank = z.object({
+  key: z.string().trim().min(1).max(100), label: z.string().trim().min(1).max(200),
+  submittedText: z.string().trim().max(5000).optional(),
+  correctAnswers: z.array(z.string().trim().min(1).max(5000)).max(20).default([])
+});
 const question = z.object({
   questionText: z.string().trim().min(1).max(30000),
-  questionType: z.enum(['MULTIPLE_CHOICE', 'MULTIPLE_ANSWERS', 'TRUE_FALSE', 'SHORT_ANSWER', 'ESSAY']).optional(),
+  questionType: z.enum(['MULTIPLE_CHOICE', 'MULTIPLE_ANSWERS', 'TRUE_FALSE', 'SHORT_ANSWER', 'FILL_IN_MULTIPLE_BLANKS', 'ESSAY']).optional(),
   choices: z.array(choice).max(100),
+  blanks: z.array(blank).max(30).optional(),
   explanation: z.string().max(30000).optional(),
   courseTitle: z.string().max(300).optional(),
   quizTitle: z.string().max(300).optional()
@@ -43,21 +49,59 @@ export async function POST(request: NextRequest) {
     for (const incoming of questions) {
       const hash = scopedQuestionHash(teamId, incoming.questionText);
       const legacyHash = questionHash(incoming.questionText);
-      const direct = await tx.question.findUnique({ where: { hash }, include: { choices: true, folder: true } });
-      const alias = await tx.questionAlias.findUnique({ where: { hash }, include: { question: { include: { choices: true, folder: true } } } });
-      const legacy = !direct && !alias ? await tx.question.findUnique({ where: { hash: legacyHash }, include: { choices: true, folder: true } }) : null;
+      const direct = await tx.question.findUnique({ where: { hash }, include: { choices: true, blanks: true, folder: true } });
+      const alias = await tx.questionAlias.findUnique({ where: { hash }, include: { question: { include: { choices: true, blanks: true, folder: true } } } });
+      const legacy = !direct && !alias ? await tx.question.findUnique({ where: { hash: legacyHash }, include: { choices: true, blanks: true, folder: true } }) : null;
       const existing = direct ?? alias?.question ?? (legacy?.folder.teamId === teamId ? legacy : null);
       if (!existing) {
         const created = await tx.question.create({ data: {
           hash, text: incoming.questionText, plainText: stripHtml(incoming.questionText), folderId,
           questionType: incoming.questionType || 'MULTIPLE_CHOICE',
           explanation: incoming.explanation,
-          isVerified: incoming.choices.some(item => item.isCorrect === true),
-          answerSource: incoming.choices.some(item => item.isCorrect === true) ? 'CANVAS' : null,
-          choices: { create: incoming.choices.map(item => ({ text: item.text, isCorrect: item.isCorrect ?? null })) }
+          isVerified: incoming.blanks?.length ? incoming.blanks.every(item => item.correctAnswers.length > 0) : incoming.choices.some(item => item.isCorrect === true),
+          answerSource: incoming.blanks?.some(item => item.correctAnswers.length > 0) || incoming.choices.some(item => item.isCorrect === true) ? 'CANVAS' : null,
+          choices: { create: incoming.choices.map(item => ({ text: item.text, isCorrect: item.isCorrect ?? null })) },
+          blanks: { create: (incoming.blanks || []).map(item => ({
+            key: item.key, label: item.label, submittedText: item.submittedText,
+            correctAnswers: [...new Set(item.correctAnswers)], answerSource: item.correctAnswers.length ? 'CANVAS' : null
+          })) }
         } });
         items.push({ questionId: created.id, wasNew: true });
         newItems++;
+        continue;
+      }
+      if (incoming.blanks?.length) {
+        const known = new Map(existing.blanks.map(item => [item.key, item]));
+        let anyCanvas = false;
+        let anyUser = false;
+        let allKnown = true;
+        for (const item of incoming.blanks) {
+          const prior = known.get(item.key);
+          const confirmed = [...new Set(item.correctAnswers)];
+          const accepted = prior?.answerSource === 'MODERATOR' ? prior.correctAnswers :
+            confirmed.length ? prior?.answerSource === 'CANVAS'
+              ? [...new Set([...prior.correctAnswers, ...confirmed])] : confirmed : prior?.correctAnswers || [];
+          const source = prior?.answerSource === 'MODERATOR' ? 'MODERATOR' : confirmed.length ? 'CANVAS' : prior?.answerSource || null;
+          await tx.questionBlank.upsert({ where: { questionId_key: { questionId: existing.id, key: item.key } },
+            create: { questionId: existing.id, key: item.key, label: item.label, submittedText: item.submittedText,
+              correctAnswers: confirmed, answerSource: confirmed.length ? 'CANVAS' : null },
+            update: { label: item.label, submittedText: item.submittedText || prior?.submittedText,
+              correctAnswers: accepted, answerSource: source }
+          });
+          if (!accepted.length) allKnown = false;
+          if (source === 'CANVAS') anyCanvas = true;
+          if (source === 'USER') anyUser = true;
+        }
+        await tx.question.update({ where: { id: existing.id }, data: {
+          timesEncountered: { increment: 1 },
+          text: incoming.questionText, plainText: stripHtml(incoming.questionText),
+          questionType: incoming.questionType || existing.questionType,
+          explanation: existing.explanation || incoming.explanation,
+          isVerified: allKnown,
+          answerSource: anyCanvas ? 'CANVAS' : anyUser ? 'USER' : existing.answerSource
+        } });
+        items.push({ questionId: existing.id, wasNew: false });
+        mergedItems++;
         continue;
       }
       let hasConflict = existing.hasConflict;
