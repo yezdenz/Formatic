@@ -3,7 +3,8 @@ import type { ScrapedQuestion } from '../types/canvas';
 export type SubmissionAnswer = {
   question_id?: number | string;
   correct?: boolean | 'partial' | 'undefined';
-  text?: string | number;
+  text?: string | number | Record<string, unknown>;
+  answer?: string | Record<string, unknown>;
   answer_id?: number | string | null;
   [field: string]: unknown;
 };
@@ -48,12 +49,35 @@ function answerId(value: unknown): string | null {
 // wrong single-choice attempt only rules out the selected option.
 export function mergeCompletedHistory(questions: ScrapedQuestion[], submissions: CompletedSubmission[]): ScrapedQuestion[] {
   const feedback = new Map<string, Map<string, Set<boolean>>>();
+  const confirmedBlanks = new Map<string, Map<string, Set<string>>>();
   for (const submission of submissions) {
     for (const answer of submission.submission_data || []) {
       const questionId = answerId(answer.question_id);
       if (!questionId || (answer.correct !== true && answer.correct !== false)) continue;
       const question = questions.find(item => item.canvasQuestionId === questionId);
       if (!question) continue;
+      if ((question.questionType === 'SHORT_ANSWER' || question.questionType === 'FILL_IN_MULTIPLE_BLANKS') && answer.correct === true) {
+        const values = new Map<string, string>();
+        for (const blank of question.blanks || []) {
+          const raw = question.questionType === 'SHORT_ANSWER'
+            ? answer.text ?? answer.answer
+            : answer[`answer_${blank.key}`] ?? answer[`question_${questionId}_${blank.key}`] ??
+              (typeof answer.answer === 'object' ? answer.answer?.[blank.key] : undefined) ??
+              (typeof answer.text === 'object' ? answer.text?.[blank.key] : undefined);
+          if (typeof raw === 'string' && raw.trim()) values.set(blank.key, raw.trim());
+        }
+        // Overall correctness confirms every blank only when every response is present.
+        if (values.size === (question.blanks || []).length && values.size > 0) {
+          const saved = confirmedBlanks.get(questionId) || new Map<string, Set<string>>();
+          for (const [key, value] of values) {
+            const accepted = saved.get(key) || new Set<string>();
+            accepted.add(value);
+            saved.set(key, accepted);
+          }
+          confirmedBlanks.set(questionId, saved);
+        }
+        continue;
+      }
       const statuses = feedback.get(questionId) || new Map<string, Set<boolean>>();
       feedback.set(questionId, statuses);
       const mark = (id: string, correct: boolean) => {
@@ -74,6 +98,9 @@ export function mergeCompletedHistory(questions: ScrapedQuestion[], submissions:
   }
   return questions.map(question => ({
     ...question,
+    blanks: question.blanks?.map(blank => ({ ...blank,
+      correctAnswers: [...new Set([...blank.correctAnswers, ...(confirmedBlanks.get(question.canvasQuestionId)?.get(blank.key) || [])])]
+    })),
     choices: question.choices.map(choice => {
       if (choice.isCorrect !== null || !choice.canvasAnswerId) return choice;
       const statuses = feedback.get(question.canvasQuestionId)?.get(choice.canvasAnswerId);
