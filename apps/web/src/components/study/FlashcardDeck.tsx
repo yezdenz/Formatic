@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import type { StudyQuestion } from './types';
+import { answerText, type StudyQuestion } from './types';
 
 export function FlashcardDeck({ questions }: { questions: StudyQuestion[] }) {
   const [queue, setQueue] = useState(questions.filter(q => q.isVerified));
@@ -26,6 +26,6 @@ export function FlashcardDeck({ questions }: { questions: StudyQuestion[] }) {
   });
   if (!questions.length) return <section className="panel"><h2>Flashcards</h2><p className="muted">No questions in this folder yet.</p></section>;
   return <section className="panel"><h2>Flashcards</h2><p>{current ? `Card 1 of ${queue.length}` : 'Deck complete'} · {mastered} mastered · {review} review actions</p>
-    {current ? <><button className="folder-card" style={{ width: '100%', minHeight: 220, textAlign: 'center', fontSize: 22 }} onClick={() => setFlipped(!flipped)}>{flipped ? <><strong>{current.choices.filter(c => c.isCorrect).map(c => c.text).join(', ')}</strong><p>{current.explanation}</p></> : current.plainText}<small style={{ display: 'block', marginTop: 20 }}>Click or press Space to flip</small></button><div className="tabs"><button className="button button-secondary" onClick={() => grade(false)}>1 · Need review</button><button className="button" onClick={() => grade(true)}>2 · Mastered</button></div></> : <p>All verified cards mastered.</p>}
+    {current ? <><button className="folder-card" style={{ width: '100%', minHeight: 220, textAlign: 'center', fontSize: 22 }} onClick={() => setFlipped(!flipped)}>{flipped ? <><strong>{answerText(current)}</strong><p>{current.explanation}</p></> : current.plainText}<small style={{ display: 'block', marginTop: 20 }}>Click or press Space to flip</small></button><div className="tabs"><button className="button button-secondary" onClick={() => grade(false)}>1 · Need review</button><button className="button" onClick={() => grade(true)}>2 · Mastered</button></div></> : <p>All verified cards mastered.</p>}
   </section>;
 }
