@@ -19,6 +19,7 @@ enum QuestionType {
   MULTIPLE_ANSWERS
   TRUE_FALSE
   SHORT_ANSWER
+  FILL_IN_MULTIPLE_BLANKS
   ESSAY
 }
 
@@ -97,6 +98,7 @@ model Question {
   folder          Folder       @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
   choices         Choice[]
+  blanks          QuestionBlank[]
   aliases         QuestionAlias[]
   pushItems       PushBatchItem[]
 
@@ -128,6 +130,21 @@ model Choice {
   updatedAt   DateTime @updatedAt
 
   @@index([questionId])
+}
+
+model QuestionBlank {
+  id              String        @id @default(uuid())
+  questionId      String
+  question        Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  key             String
+  label           String
+  submittedText   String?
+  correctAnswers  String[]      @default([])
+  answerSource    AnswerSource?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([questionId, key])
 }
 
 model PushBatch {
