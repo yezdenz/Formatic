@@ -55,3 +55,39 @@ export function AnswerResolver({ questionId, multiple, editable, choices }: { qu
     {notice && <p className="success" role="status">{notice}</p>}
   </form>;
 }
+
+export function BlankResolver({ questionId, blankKey, initialAnswer }: { questionId: string; blankKey: string; initialAnswer?: string }) {
+  const router = useRouter();
+  const [answer, setAnswer] = useState(initialAnswer || '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!answer.trim() || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/questions/${questionId}/answer`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blankKey, answer: answer.trim() })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Could not save this answer.');
+      }
+      setNotice('Answer saved for your team.');
+      router.refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save this answer.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return <form className="repository-blank-form" onSubmit={event => void submit(event)}>
+    <input className="field" aria-label={`Correct answer for ${blankKey}`} value={answer} onChange={event => setAnswer(event.target.value)} maxLength={5000} placeholder="Enter the correct answer" />
+    <button className="button" type="submit" disabled={!answer.trim() || busy}>{busy ? 'Saving…' : initialAnswer ? 'Update' : 'Save'}</button>
+    {error && <p className="error" role="alert">{error}</p>}
+    {notice && <p className="success" role="status">{notice}</p>}
+  </form>;
+}
