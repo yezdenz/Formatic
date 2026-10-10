@@ -21,10 +21,40 @@ export async function POST(request: NextRequest) {
   const { targetId, sourceId } = parsed.data;
   const merged = await prisma.$transaction(async tx => {
     const [target, source] = await Promise.all([
-      tx.question.findUnique({ where: { id: targetId }, include: { choices: true, folder: true } }),
-      tx.question.findUnique({ where: { id: sourceId }, include: { choices: true, folder: true } })
+      tx.question.findUnique({ where: { id: targetId }, include: { choices: true, blanks: true, folder: true } }),
+      tx.question.findUnique({ where: { id: sourceId }, include: { choices: true, blanks: true, folder: true } })
     ]);
     if (!target || !source || target.folder.teamId !== user.teamId || source.folder.teamId !== user.teamId) return null;
+    if (!!target.blanks.length !== !!source.blanks.length) return null;
+    if (target.blanks.length || source.blanks.length) {
+      for (const blank of source.blanks) {
+        const prior = target.blanks.find(item => item.key === blank.key);
+        const sourceWins = !!blank.correctAnswers.length && (!prior?.correctAnswers.length || prior.answerSource === 'USER' && blank.answerSource === 'CANVAS');
+        const accepted = sourceWins ? blank.correctAnswers : prior?.answerSource === 'CANVAS' && blank.answerSource === 'CANVAS'
+          ? [...new Set([...prior.correctAnswers, ...blank.correctAnswers])] : prior?.correctAnswers || blank.correctAnswers;
+        await tx.questionBlank.upsert({ where: { questionId_key: { questionId: targetId, key: blank.key } },
+          create: { questionId: targetId, key: blank.key, label: blank.label, submittedText: blank.submittedText,
+            correctAnswers: blank.correctAnswers, answerSource: blank.answerSource },
+          update: { submittedText: prior?.submittedText || blank.submittedText, correctAnswers: accepted,
+            answerSource: sourceWins ? blank.answerSource : prior?.answerSource }
+        });
+      }
+      const blanks = await tx.questionBlank.findMany({ where: { questionId: targetId } });
+      await tx.pushBatchItem.updateMany({ where: { questionId: sourceId }, data: { questionId: targetId } });
+      await tx.questionAlias.updateMany({ where: { questionId: sourceId }, data: { questionId: targetId } });
+      await tx.questionAlias.create({ data: { hash: source.hash, questionId: targetId } });
+      await tx.question.update({ where: { id: targetId }, data: {
+        timesEncountered: { increment: source.timesEncountered },
+        timesCorrect: { increment: source.timesCorrect }, timesIncorrect: { increment: source.timesIncorrect },
+        explanation: target.explanation || source.explanation,
+        questionType: blanks.length > 1 ? 'FILL_IN_MULTIPLE_BLANKS' : 'SHORT_ANSWER',
+        isVerified: blanks.length > 0 && blanks.every(blank => blank.correctAnswers.length > 0),
+        answerSource: blanks.some(blank => blank.answerSource === 'CANVAS') ? 'CANVAS' : blanks.some(blank => blank.answerSource === 'USER') ? 'USER' : target.answerSource
+      } });
+      await tx.question.delete({ where: { id: sourceId } });
+      await tx.adminLog.create({ data: { adminId: user.id, action: 'MERGE_QUESTIONS', targetId, details: JSON.stringify({ sourceId, sourceHash: source.hash }) } });
+      return { targetId, sourceId };
+    }
     const targetChoices = [...target.choices];
     const sourceCorrect = source.choices.filter(choice => choice.isCorrect === true).map(choice => normalizeText(choice.text));
     const targetCorrect = target.choices.filter(choice => choice.isCorrect === true).map(choice => normalizeText(choice.text));
