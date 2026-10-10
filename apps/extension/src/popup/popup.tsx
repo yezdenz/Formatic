@@ -37,7 +37,8 @@ function QuestionPreview({ question, match }: { question: ScrapedQuestion; match
   return <li className="question-preview">
     <span className="question-text">{question.questionText}</span>
     {question.choices.length > 0 && <ul className="choice-list">{question.choices.map((choice, index) => <li className={choice.isCorrect === true ? 'correct-choice' : choice.isSelected && choice.isCorrect === false ? 'wrong-choice' : ''} key={index}>{choice.isCorrect === true ? '✓ ' : choice.isSelected && choice.isCorrect === false ? '× ' : ''}{choice.text}{choice.isSelected ? ' · selected' : ''}</li>)}</ul>}
-    <span className="question-meta">{question.choices.some(choice => choice.isCorrect === true) ? 'Answer found' : 'No answer key yet'}</span>
+    {!!question.blanks?.length && <ul className="choice-list">{question.blanks.map((blank, index) => <li key={blank.key}>{question.blanks!.length === 1 ? 'Answer' : `Blank ${index + 1} (${blank.key})`}: {blank.correctAnswers.length ? <strong className="correct-choice">{blank.correctAnswers.join(' / ')}</strong> : blank.submittedText ? `${blank.submittedText} · unconfirmed` : 'unresolved'}</li>)}</ul>}
+    <span className="question-meta">{question.blanks?.length ? question.blanks.every(blank => blank.correctAnswers.length) ? 'Answer found' : 'No answer key yet' : question.choices.some(choice => choice.isCorrect === true) ? 'Answer found' : 'No answer key yet'}</span>
     <span className={`match-badge match-${match}`}>{match === 'existing' ? 'Already in repository' : match === 'absent' ? 'Not in repository yet' : match === 'loading' ? 'Checking repository…' : 'Repository status unknown'}</span>
   </li>;
 }
