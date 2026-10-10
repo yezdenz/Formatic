@@ -114,3 +114,25 @@ test('does not infer an answer from an unfinished first attempt', async () => {
   assert.deepEqual(await readCompletedHistory('https://canvas.example.edu', '2', '3', mock), []);
   assert.equal(requested.length, 3);
 });
+
+test('confirms a single fill-in answer only from a fully correct completed response', () => {
+  const blank = { ...question('8', 'SHORT_ANSWER'), choices: [], blanks: [{ key: 'answer', label: 'Answer', submittedText: 'HHTP', correctAnswers: [] }] };
+  const merged = mergeCompletedHistory([blank], [{ submission_data: [
+    { question_id: 8, correct: false, text: 'HHTP' },
+    { question_id: 8, correct: true, text: 'HTTP' }
+  ] }]);
+  assert.deepEqual(merged[0].blanks?.[0].correctAnswers, ['HTTP']);
+});
+
+test('requires every named blank in a fully correct response before confirming any', () => {
+  const blank = { ...question('9', 'FILL_IN_MULTIPLE_BLANKS'), choices: [], blanks: [
+    { key: 'color', label: 'color', correctAnswers: [] },
+    { key: 'plant', label: 'plant', correctAnswers: [] }
+  ] };
+  const merged = mergeCompletedHistory([blank], [{ submission_data: [
+    { question_id: 9, correct: true, answer_color: 'blue' },
+    { question_id: 9, correct: 'partial', answer_color: 'blue', answer_plant: 'green' },
+    { question_id: 9, correct: true, answer_color: 'blue', answer_plant: 'green' }
+  ] }]);
+  assert.deepEqual(merged[0].blanks?.map(item => item.correctAnswers), [['blue'], ['green']]);
+});
